@@ -8,6 +8,7 @@ import pyranges as pr
 from tqdm import tqdm
 import os
 import torch
+from pybedtools import BedTool
 
 def df_to_pyranges(df, start_col='start', end_col='end', chr_col='chr', start_slop=0, end_slop=0):
     df['Chromosome'] = df[chr_col]
@@ -123,6 +124,14 @@ def encode_promoter_enhancer_links_diff(gene_enhancer_df1, gene_enhancer_df2 , f
     # set distance threshold
     gene_pe1 = gene_pe1[(gene_pe1['distance'] > max_seq_len/2)&(gene_pe1['distance'] <= max_distanceToTSS)]
     gene_pe2 = gene_pe2[(gene_pe2['distance'] > max_seq_len/2)&(gene_pe2['distance'] <= max_distanceToTSS)]
+    gene_pe1_string = gene_pe1[["chr","start","end"]].to_csv('/tmp/'+gene_name+'_pe.tsv', sep='\t', header=False, index=False, float_format='%.0f')
+    gene_pe2_string = gene_pe2[["chr","start","end"]].to_csv('/tmp/'+gene_name+'_pe.tsv', sep='\t', header=False, index=False, float_format='%.0f', mode='a')
+    gene_merged_pe = BedTool('/tmp/'+gene_name+'_pe.tsv')        
+    gene_merged_pe = gene_merged_pe.sort()
+    gene_merged_pe = gene_merged_pe.merge()
+
+    # todo: need to merge the pe1 and pe2 dfs based on merged intervals
+ 
     e_i = 0
     gene_element_pair = []
     for idx, row in gene_pe.iterrows():
