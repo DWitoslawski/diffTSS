@@ -32,30 +32,27 @@ from torch.utils.data import Subset, Dataset
 
 
 # Load ABC enhancer-gene data
-enhancer_gene_k562 = pd.read_csv('./data/K562_DNase_ENCFF257HEE_hic_4DNFITUOMFUQ_1MB_ABC_nominated/Gene-enhancer links/EnhancerPredictionsAllPutative.txt.gz', sep='\t')
+enhancer_gene_k562 = pd.read_csv('./data/K562_GM12878_ABC_nominated/Gene-enhancer links/K562.AllPutative.txt', sep='\t')
 # Select the gene-enhancer links within 100kb to the TSS of target gene and remove the promoter element
 enhancer_gene_k562_100kb = enhancer_gene_k562[(enhancer_gene_k562['distance']<=100_000)&(enhancer_gene_k562['distance']>1000)].reset_index()
-#enhancer_gene_k562_100kb.to_csv('./data/K562_enhancer_gene_links_100kb.tsv', index=False, sep='\t')
+enhancer_gene_k562_100kb.to_csv('./data/K562_enhancer_gene_links_100kb.tsv', index=False, sep='\t')
 
-enhancer_gene_gm12878 = pd.read_csv('./data/GM12878_DNase_ENCFF020WZB_hic_4DNFI1UEG1HD_1MB_ABC_nominated/Gene-enhancer links/EnhancerPredictionsAllPutative.txt.gz', sep='\t')
+enhancer_gene_gm12878 = pd.read_csv('./data/K562_GM12878_ABC_nominated/Gene-enhancer links/GM12878.AllPutative.txt', sep='\t')
 # Select the gene-enhancer links within 100kb to the TSS of target gene and remove the promoter element
 enhancer_gene_gm12878_100kb = enhancer_gene_gm12878[(enhancer_gene_gm12878['distance']<=100_000)&(enhancer_gene_gm12878['distance']>1000)].reset_index()
-#enhancer_gene_gm12878_100kb.to_csv('./data/GM12878_enhancer_gene_links_100kb.tsv', index=False, sep='\t')
+enhancer_gene_gm12878_100kb.to_csv('./data/GM12878_enhancer_gene_links_100kb.tsv', index=False, sep='\t')
+
 
 # In[6]:
 
 
 #enhancer_gene_k562_100kb = pd.read_csv('./data/K562_enhancer_gene_links_100kb.tsv', sep='\t')
-gene_tss = pd.read_csv('./data/K562_DNase_ENCFF257HEE_hic_4DNFITUOMFUQ_1MB_ABC_nominated/DNase_ENCFF257HEE_Neighborhoods/GeneList.txt', sep='\t')[['name', 'chr', 'tss', 'strand']]
+gene_tss = pd.read_csv('./data/K562_GM12878_ABC_nominated/Neighborhoods/GeneList.txt', sep='\t')[['name', 'chr', 'tss', 'strand']]
+# todo: data_split file need to be updated to common GeneList.txt 
 data_split = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv')
-gene_tss = gene_tss.merge(data_split[['ENSID', 'Gene name']], left_on='name', right_on='ENSID').drop(columns='name')
-enhancer_gene_k562_100kb_includeNoEnhancerGene = enhancer_gene_k562_100kb.merge(gene_tss, left_on='TargetGene', right_on='ENSID', how='right', suffixes=['', '_gene']).reset_index()
-
-#enhancer_gene_gm12878_100kb = pd.read_csv('./data/GM12878_enhancer_gene_links_100kb.tsv', sep='\t')
-gene_tss = pd.read_csv('./data/GM12878_DNase_ENCFF020WZB_hic_4DNFI1UEG1HD_1MB_ABC_nominated/DNase_ENCFF020WZB_Neighborhoods/GeneList.txt', sep='\t')[['name', 'chr', 'tss', 'strand']]
-data_split = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv')
-gene_tss = gene_tss.merge(data_split[['ENSID', 'Gene name']], left_on='name', right_on='ENSID').drop(columns='name')
-enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.merge(gene_tss, left_on='TargetGene', right_on='ENSID', how='right', suffixes=['', '_gene']).reset_index()
+gene_tss = gene_tss.merge(data_split[['ENSID', 'Gene name']], left_on='name', right_on='Gene name').drop(columns='name')
+enhancer_gene_k562_100kb_includeNoEnhancerGene = enhancer_gene_k562_100kb.merge(gene_tss, left_on='TargetGene', right_on='Gene name', how='right', suffixes=['', '_gene']).reset_index()
+enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.merge(gene_tss, left_on='TargetGene', right_on='Gene name', how='right', suffixes=['', '_gene']).reset_index()
 
 
 

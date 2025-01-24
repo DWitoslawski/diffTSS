@@ -8,7 +8,7 @@ import pyranges as pr
 from tqdm import tqdm
 import os
 import torch
-from pybedtools import BedTool
+#from pybedtools import BedTool
 
 def df_to_pyranges(df, start_col='start', end_col='end', chr_col='chr', start_slop=0, end_slop=0):
     df['Chromosome'] = df[chr_col]
@@ -124,13 +124,18 @@ def encode_promoter_enhancer_links_diff(gene_enhancer_df1, gene_enhancer_df2 , f
     # set distance threshold
     gene_pe1 = gene_pe1[(gene_pe1['distance'] > max_seq_len/2)&(gene_pe1['distance'] <= max_distanceToTSS)]
     gene_pe2 = gene_pe2[(gene_pe2['distance'] > max_seq_len/2)&(gene_pe2['distance'] <= max_distanceToTSS)]
-    gene_pe1_string = gene_pe1[["chr","start","end"]].to_csv('/tmp/'+gene_name+'_pe.tsv', sep='\t', header=False, index=False, float_format='%.0f')
-    gene_pe2_string = gene_pe2[["chr","start","end"]].to_csv('/tmp/'+gene_name+'_pe.tsv', sep='\t', header=False, index=False, float_format='%.0f', mode='a')
-    gene_merged_pe = BedTool('/tmp/'+gene_name+'_pe.tsv')        
-    gene_merged_pe = gene_merged_pe.sort()
-    gene_merged_pe = gene_merged_pe.merge()
+    gene_pe1[['type','enhancer']] = gene_pe1['name'].str.split(pat="|",expand=True)
+    gene_pe2[['type','enhancer']] = gene_pe2['name'].str.split(pat="|",expand=True)
+    #gene_pe1[["chr","start","end"]].to_csv('/tmp/'+gene_name+'_pe.tsv', sep='\t', header=False, index=False, float_format='%.0f')
+    #gene_pe2[["chr","start","end"]].to_csv('/tmp/'+gene_name+'_pe.tsv', sep='\t', header=False, index=False, float_format='%.0f', mode='a')
+    #gene_merged_pe = BedTool('/tmp/'+gene_name+'_pe.tsv')        
+    #gene_merged_pe = gene_merged_pe.sort()
+    #gene_merged_pe = gene_merged_pe.merge()
 
     # todo: need to merge the pe1 and pe2 dfs based on merged intervals
+    gene_pe1['key'] = gene_pe1['enhancer']+'_'+gene_pe1['TargetGene']
+    gene_pe2['key'] = gene_pe2['enhancer']+'_'+gene_pe2['TargetGene']
+    gene_pe = gene_pe1.merge(gene_pe2, on='key', suffixes=('_cell1', '_cell2'))
  
     e_i = 0
     gene_element_pair = []
@@ -159,9 +164,9 @@ def encode_promoter_enhancer_links_diff(gene_enhancer_df1, gene_enhancer_df2 , f
                 enhancer_target_interval = kipoiseq.Interval(chrom, enhancer_start, enhancer_end)
                 enhancers_code[e_i][code_start:code_start+enhancer_len] = one_hot_encode(fasta_extractor.extract(enhancer_target_interval))
         # put sequence from the start
-        enhancer_activity[e_i] = row['activity_base']
+        enhancer_activity[e_i] = row['activity_base_cell1'] - row['activity_base_cell2']
         enhancer_distance[e_i] = row['distance']
-        enhancer_contact[e_i] = row['hic_contact']
+        enhancer_contact[e_i] = row['hic_contact_cell1'] - row['hic_contact_cell2']
         gene_element_pair.append([gene_name, row['name']])
         e_i += 1
     # print(promoter_signals.shape, enhancers_signal.shape)
@@ -223,15 +228,11 @@ def prepare_input(gene_enhancer_table, gene_list, cell, num_features = 3):
 def prepare_input_diff(cell1_gene_enhancer_table, cell2_gene_enhancer_table, gene_list, cells, num_features = 3):
     # enhancer_gene_k562_100kb[enhancer_gene_k562_100kb['#chr'] == 'chrX']['TargetGene'].unique()
     mRNA_feauture = pd.read_csv('./data/mRNA_halflife_features.csv', index_col='gene_id')
-    #if cell == 'K562':
-        cell1_promoter_signals = pd.read_csv('./data/K562_DNase_ENCFF257HEE_hic_4DNFITUOMFUQ_1MB_ABC_nominated/DNase_ENCFF257HEE_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
-        cell1_promoter_signals['PromoterActivity'] = np.sqrt(cell1_promoter_signals['H3K27ac.RPM.TSS1Kb']*cell1_promoter_signals['DHS.RPM.TSS1Kb'])
-    #elif cell == 'GM12878':
-        cell2_promoter_signals = pd.read_csv('./data/GM12878_DNase_ENCFF020WZB_hic_4DNFI1UEG1HD_1MB_ABC_nominated/DNase_ENCFF020WZB_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
-        cell2_promoter_signals['PromoterActivity'] = np.sqrt(cell2_promoter_signals['H3K27ac.RPM.TSS1Kb']*cell2_promoter_signals['DHS.RPM.TSS1Kb'])
-    #else:
-    #    print(cell, 'not found!')
-    #    return 0
+    cell1_promoter_signals = pd.read_csv('./data/K562_GM12878_ABC_nominated/Neighborhoods/K562.GeneList.txt', sep='\t', index_col='symbol')
+    cell1_promoter_signals['PromoterActivity'] = np.sqrt(cell1_promoter_signals['H3K27ac.RPM.TSS1Kb']*cell1_promoter_signals['DHS.RPM.TSS1Kb'])
+    cell2_promoter_signals = pd.read_csv('./data/K562_GM12878_ABC_nominated/Neighborhoods/GM12878.GeneList.txt', sep='\t', index_col='symbol')
+    cell2_promoter_signals['PromoterActivity'] = np.sqrt(cell2_promoter_signals['H3K27ac.RPM.TSS1Kb']*cell2_promoter_signals['DHS.RPM.TSS1Kb'])
+    promoter_signals['PromoterActivity'] = cell1_promoter_signals['PromoterActivity'] - cell2_promoter_signals['PromoterActivity']
     mRNA_feats = ['UTR5LEN_log10zscore',
        'CDSLEN_log10zscore', 'INTRONLEN_log10zscore', 'UTR3LEN_log10zscore',
        'UTR5GC', 'CDSGC', 'UTR3GC', 'ORFEXONDENSITY']
