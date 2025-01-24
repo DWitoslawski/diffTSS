@@ -336,7 +336,8 @@ class promoter_enhancer_dataset(Dataset):
             promoter_df = pd.read_csv(self.data_folder + '/K562_DNase_ENCFF257HEE_hic_4DNFITUOMFUQ_1MB_ABC_nominated/DNase_ENCFF257HEE_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             self.promoter_df = promoter_df
-            self.data_h5 = h5py.File(self.data_folder + '/K562_DNase_ENCFF257HEE_2kb_4DNFITUOMFUQ_enhancer_promoter_encoding.h5', 'r')
+            #self.data_h5 = h5py.File(self.data_folder + '/K562_DNase_ENCFF257HEE_2kb_4DNFITUOMFUQ_enhancer_promoter_encoding.h5', 'r')
+            self.data_h5 = h5py.File(self.data_folder + '/K562_GM12878_enhancer_promoter_encoding.h5', 'r')
             # self.data_h5 = h5py.File('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/K562_DNase_ENCFF257HEE_2kb_noCutOff_hic_noFlankSeq_150kb60e_AllPutative_signals_False_v2.h5')
         elif cell_type == 'GM12878':
             promoter_df = pd.read_csv(self.data_folder + '/GM12878_DNase_ENCFF020WZB_hic_4DNFI1UEG1HD_1MB_ABC_nominated/DNase_ENCFF020WZB_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
@@ -439,17 +440,17 @@ class promoter_enhancer_diff_dataset(Dataset):
         self.distance_threshold = distance_threshold
         self.hic_threshold = hic_threshold
 #        if cell_type == 'K562':
-            # promoter_df = pd.read_csv('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/DNase_ENCFF257HEE_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
-            promoter_df = pd.read_csv(self.data_folder + '/K562_DNase_ENCFF257HEE_hic_4DNFITUOMFUQ_1MB_ABC_nominated/DNase_ENCFF257HEE_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
-            promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
-            self.cell1_promoter_df = promoter_df
-            self.cell1_data_h5 = h5py.File(self.data_folder + '/K562_DNase_ENCFF257HEE_2kb_4DNFITUOMFUQ_enhancer_promoter_encoding.h5', 'r')
-            # self.data_h5 = h5py.File('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/K562_DNase_ENCFF257HEE_2kb_noCutOff_hic_noFlankSeq_150kb60e_AllPutative_signals_False_v2.h5')
+        # promoter_df = pd.read_csv('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/DNase_ENCFF257HEE_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
+        promoter_df = pd.read_csv(self.data_folder + '/K562_DNase_ENCFF257HEE_hic_4DNFITUOMFUQ_1MB_ABC_nominated/DNase_ENCFF257HEE_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
+        promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
+        self.cell1_promoter_df = promoter_df
+        self.cell1_data_h5 = h5py.File(self.data_folder + '/K562_DNase_ENCFF257HEE_2kb_4DNFITUOMFUQ_enhancer_promoter_encoding.h5', 'r')
+        # self.data_h5 = h5py.File('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/K562_DNase_ENCFF257HEE_2kb_noCutOff_hic_noFlankSeq_150kb60e_AllPutative_signals_False_v2.h5')
 #        elif cell_type == 'GM12878':
-            promoter_df = pd.read_csv(self.data_folder + '/GM12878_DNase_ENCFF020WZB_hic_4DNFI1UEG1HD_1MB_ABC_nominated/DNase_ENCFF020WZB_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
-            promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
-            self.cell2_promoter_df = promoter_df 
-            self.cell2_data_h5 = h5py.File(self.data_folder + '/GM12878_DNase_ENCFF020WZB_2kb_4DNFI1UEG1HD_promoter_enhancer_encoding.h5', 'r')
+        promoter_df = pd.read_csv(self.data_folder + '/GM12878_DNase_ENCFF020WZB_hic_4DNFI1UEG1HD_1MB_ABC_nominated/DNase_ENCFF020WZB_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
+        promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
+        self.cell2_promoter_df = promoter_df 
+        self.cell2_data_h5 = h5py.File(self.data_folder + '/GM12878_DNase_ENCFF020WZB_2kb_4DNFI1UEG1HD_promoter_enhancer_encoding.h5', 'r')
         assert sum(self.cell1_promoter_df.index != self.cell2_promoter_df.index) == 0
         self.expr_df = pd.read_csv(self.data_folder + '/GM12878_K562_18377_gene_expr_fromXpresso.csv', index_col='ENSID')
     def __len__(self):

@@ -29,7 +29,7 @@ parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
 
 # example
-# python train_EPInformer.py --cell K562  --model_type EPInformer-PE-Activity --expr_assay CAGE --use_pretrained_encoder --batch_size 16
+# python train_EPInformer.py --cell K562  --model_type EPInformer-PE-Activity --expr_assay CAGE --use_pretrained_encoder --batch_size 16 --fold 1
 
 ##### parameter ######
 args = parser.parse_args()
@@ -92,10 +92,13 @@ for fi in fold_list:
     ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
     ensid_df['idx'] = np.arange(len(ensid_list))
     ensid_df = ensid_df.set_index('ensid')
-    train_idx = ensid_df.loc[train_ensid]['idx']
-    valid_idx = ensid_df.loc[valid_ensid]['idx']
+    train_common_ensid = list(set(train_ensid).intersection(set(ensid_df.index)))
+    train_idx = ensid_df.loc[train_common_ensid]['idx']
+    valid_common_ensid = list(set(valid_ensid).intersection(set(ensid_df.index)))
+    valid_idx = ensid_df.loc[valid_common_ensid]['idx']
 
-    test_idx = ensid_df.loc[test_ensid]['idx']
+    test_common_ensid = list(set(test_ensid).intersection(set(ensid_df.index)))
+    test_idx = ensid_df.loc[test_common_ensid]['idx']
 
     train_ds = Subset(all_ds, train_idx)
     valid_ds = Subset(all_ds, valid_idx)
