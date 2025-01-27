@@ -26,11 +26,11 @@ def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_
       # Create 'ensid' dataset (an array of encoded strings)
       #ensid_data = [f"ENSG{100000 + i}" for i in range(10)]  # Example ENSIDs
       encoded_ensid_data = [s.encode() for s in ensid_data]  # Encode strings as bytes
-      h5_file.create_dataset('ensid', data=np.array(encoded_ensid_data, dtype='S'))
+      h5_file.create_dataset('ensid', data=np.array(encoded_ensid_data, dtype='S'), dtype='O')
 
       # Create 'pe_code' dataset (example: 2D array of integers)
       #pe_code_data = np.random.randint(0, 100, size=(10, 20))  # Replace with real data
-      h5_file.create_dataset('pe_code', data=pe_code_data)
+      h5_file.create_dataset('pe_code', data=pe_code_data, dtype="b1")
 
       # Create 'distance' dataset (example: 2D array with distances)
       #distance_data = np.random.rand(10, 5)  # Replace with real distances

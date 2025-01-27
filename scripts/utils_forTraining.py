@@ -337,7 +337,7 @@ class promoter_enhancer_dataset(Dataset):
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             self.promoter_df = promoter_df
             #self.data_h5 = h5py.File(self.data_folder + '/K562_DNase_ENCFF257HEE_2kb_4DNFITUOMFUQ_enhancer_promoter_encoding.h5', 'r')
-            self.data_h5 = h5py.File(self.data_folder + '/K562_GM12878_enhancer_promoter_encoding.h5', 'r')
+            self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.original.h5', 'r')
             # self.data_h5 = h5py.File('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/K562_DNase_ENCFF257HEE_2kb_noCutOff_hic_noFlankSeq_150kb60e_AllPutative_signals_False_v2.h5')
         elif cell_type == 'GM12878':
             promoter_df = pd.read_csv(self.data_folder + '/GM12878_DNase_ENCFF020WZB_hic_4DNFI1UEG1HD_1MB_ABC_nominated/DNase_ENCFF020WZB_Neighborhoods/GeneList.txt', sep='\t', index_col='symbol')
