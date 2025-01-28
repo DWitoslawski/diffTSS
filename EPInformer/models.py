@@ -20,6 +20,9 @@ warnings.filterwarnings('ignore')
 def get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
+# this class takes sequence and outputs a fixed-length feature representation (out_dim = 128 in the constructor). 
+# This suggests that the network encodes the variable sequence information into a compact vector that represents its "essence."
+# This feature can then be used for downstream tasks such as classification, regression, or clustering.
 class seq_256bp_encoder(nn.Module):
     def __init__(self, base_size=4, out_dim=128, conv_dim=256):
         super(seq_256bp_encoder, self).__init__()
@@ -27,10 +30,17 @@ class seq_256bp_encoder(nn.Module):
         self.out_dim = out_dim
         self.base_size = base_size
         # cropped_len = 46
+        # stem convolution Transforms 4 channels (bases) into higher dim 256 channels.
+        # captures local patterns (motifs) via convolution
         self.stem_conv = nn.Sequential(
             nn.Conv2d(in_channels = base_size, out_channels = self.conv_dim, kernel_size = (1, 8), stride = 1, padding='same'),
             nn.ELU(),
         )
+        # [batch_size, 256, 256, 1]
+        # convolutional tower:
+        # Key dimension reduction happens through 4 MaxPool layers
+        # Each MaxPool reduces spatial dimension by half: 256 > 128 > 64 > 32 > 16
+        # Channel dimensions change: 256 > 128 > 64 > 64 > 128
         self.conv_tower = nn.ModuleList([])
         conv_dim = [self.conv_dim, 128, 64, 64, 128]
         for i in range(4):
@@ -44,6 +54,7 @@ class seq_256bp_encoder(nn.Module):
                 nn.Conv2d(in_channels = conv_dim[i+1], out_channels=conv_dim[i+1], kernel_size=(1, 1)),
                 nn.ELU(),
             ))
+        # final shape after conv tower: [batch_size, 128, 16, 1]
         
     def forward(self, enhancers_input):
         if enhancers_input.shape[2] == 1:
@@ -92,24 +103,33 @@ class MHAttention_encoderLayer(nn.Module):
         # self.linear1 = nn.Linear(d_model, 4*d_model) might cause loading problem, this parameter is not neccessary
         # self.linear2 = nn.Linear(4*d_model, d_model) might cause loading problem, this parameter is not neccessary
         # self.dropout = nn.Dropout(dropout)
-        
         self.ff = nn.Sequential(
             nn.Linear(d_model, d_model*4),
             nn.ReLU(),
             nn.Linear(d_model*4, d_model)
         )
     # self-attention block
+    # Takes three identical inputs (x, x, x) representing queries, keys, and values
+    # Returns both transformed output and attention weights
+    # Supports masking via key_padding_mask (for variable sequence lengths) and attn_mask (for controlling attention patterns)
     def _sa_block(self, x, key_padding_mask, attn_mask):
         x, w = self.self_attn(x, x, x,
                            key_padding_mask=key_padding_mask, attn_mask=attn_mask)
         return x, w
-        
+
+    # The forward pass follows this sequence:
+    # Layer normalization of input
+    # Self-attention computation
+    # Residual connection adding original input
+    # Second layer normalization
+    # Feed-forward network (FFN) processing
+    # Second residual connection
     def forward(self, x, enhancers_padding_mask=None, attn_mask=None):
         x2 = self.norm1(x)
         x2, attention_w = self._sa_block(x2, key_padding_mask=enhancers_padding_mask, attn_mask=attn_mask)
-        x = x2 + x
+        x = x2 + x  # Residual connection
         x2 = self.norm2(x)
-        x = x + self.ff(x2)
+        x = x + self.ff(x2) # Another residual connection
         return x, attention_w
 
 class MHAttention_encoderLayer_noLN(nn.Module):
@@ -142,6 +162,10 @@ class MHAttention_encoderLayer_noLN(nn.Module):
 
 
 class EPInformer_v2(nn.Module):
+    # base_size: Number of input channels (e.g., nucleotide bases for DNA).
+    # n_encoder: Number of transformer encoder layers.
+    # out_dim: Output feature size.
+    # head: Number of attention heads in transformer layers.
     def __init__(self, base_size = 4, n_encoder=3, out_dim=128, head = 4, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True):
         super(EPInformer_v2, self).__init__()
         self.n_enhancer = n_enhancer
@@ -160,30 +184,52 @@ class EPInformer_v2(nn.Module):
             self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh'.format(base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer)
         self.n_encoder = n_encoder
         self.device = device
+        # Multi-head self-attention captures long-range dependencies between sequence elements (e.g., interactions between enhancers and promoters).
+        # Feed-forward layers refine the representation at each transformer layer.
         if useLN:
             self.attn_encoder = get_clones(MHAttention_encoderLayer(d_model=out_dim, nhead=head), self.n_encoder)
         else:
             self.attn_encoder = get_clones(MHAttention_encoderLayer_noLN(d_model=out_dim, nhead=head), self.n_encoder)
+        # attention pattern where: 
+        # No element can attend to itself (diagonal is masked)
+        # The first position (index 0) can attend to and be attended by all positions
+        # This suggests it might be acting as a special token (like CLS in BERT) that aggregates information from all sequences
+        # The attention mechanism is particularly useful here because it allows the model to:
+        #Learn long-range dependencies between different parts of the DNA sequence
+        #Weight the importance of different enhancer regions dynamically
+        #Capture complex interactions between multiple regulatory elements
+        #Aggregate information across the entire sequence through the special first token
         attn_mask = (~np.identity(self.n_enhancer+1).astype(bool))
         attn_mask[:, 0] = False
         attn_mask[0, :] = False
         attn_mask = torch.from_numpy(attn_mask)
         attn_mask.masked_fill(attn_mask, float('-inf'))
         self.attn_mask = attn_mask
+        # Starting shape: [batch_size, 128, 16, 1]
+        # The dilated convolutions with kernel size 3 and increasing dilation rates (2, 4, 6) are expanding the receptive field while processing the sequence. 
         if self.useBN:
             self.conv_out = nn.Sequential(
+                # First convolution with dilation=2
                 nn.Conv2d(in_channels = 128, out_channels=64, kernel_size=(1, 3), dilation=(1, 2)),
                 nn.BatchNorm2d(64),
                 nn.ELU(),
+                # Second convolution with dilation=4
                 nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 4)),
                 nn.BatchNorm2d(64),
                 nn.ELU(),
+                # Third convolution with dilation=6
                 nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 6)),
                 nn.BatchNorm2d(64),
                 nn.ELU(),
+                # 1x1 convolution
+                # A nn.Conv2d layer with a kernel size of (1, 1) reduces the number of channels from 64 to 32. 
+                # This is commonly used to reduce channel dimensionality while preserving spatial resolution.
                 nn.Conv2d(in_channels = 64, out_channels=32, kernel_size=(1, 1)),
                 nn.BatchNorm2d(32),
                 nn.ELU(),
+                # The linear transformation layer expects input tensors with 101 features per sample.
+                # The layer reduces the dimensionality of the input features to int(self.out_dim / 32) features. 
+                # self.out_dim = 128, for example, the number of output features would be 4
                 nn.Linear(101, int(self.out_dim/32)), 
                  # nn.Linear(38, 8), # 2kb nn.Linear(101, 8)
                 nn.ELU(),
@@ -207,6 +253,10 @@ class EPInformer_v2(nn.Module):
                 feat_n = 9
             else:
                 feat_n = 8
+            # This creates a feed-forward neural network that:
+            # Takes combined input of sequence features (out_dim) and additional features (feat_n)
+            # Has two hidden layers of size 128
+            # Outputs a single value (likely representing expression level or enhancer activity)
             self.pToExpr = nn.Sequential(
                         nn.Linear(self.out_dim+feat_n, 128),
                         nn.ReLU(),
@@ -233,9 +283,20 @@ class EPInformer_v2(nn.Module):
         # if enhancers_padding_mask is None:
         enhancers_padding_mask = ~(pe_seq.sum(-1).sum(-1) > 0).bool()
 #         print(enhancers_padding_mask)
+        # 1. Get convolutional features from seq_encoder
         pe_embed = self.seq_encoder(pe_seq)
+        # Shape is [batch_size, 128, 16, 1] 128 is channels, 16 is reduced sequence length 
+        # 2. Apply additional convolutions from conv_out
         pe_embed = self.conv_out(pe_embed)
+        # Shape becomes [batch_size, 32, 16, 4]
+        # (32 channels due to final conv layer, 4 comes from the Linear(101, out_dim/32) where out_dim=128)
+        # 3. Key reshaping line:
+        # permute Reorders dimensions to [batch_size, 16, 32, 4]
+        # flatten Flattens last two dimensions: 32 * 4 = 128
         pe_flatten_embed = torch.flatten(pe_embed.permute(0, 2, 1, 3), start_dim=2)
+        # Final shape: [batch_size, 16, 128]
+        # This matches the required shape for attention: [batch_size, sequence_length, embedding_dim]
+        # sequence_length = 16 (reduced from 256), embedding_dim = 128 (32 channels * 4) 
         if extraFeat is not None:
             pe_flatten_embed = self.add_pos_conv(torch.concat([pe_flatten_embed, extraFeat], axis=-1).permute(0,2,1)).permute(0,2,1)
         attn_list = []
