@@ -5,7 +5,7 @@
 
 
 from EPInformer.models import EPInformer_v2, enhancer_predictor_256bp
-from scripts.utils import prepare_input, prepare_input_diff, prepare_hd5_input, prepare_hd5_input_diff
+from scripts.utils import prepare_input, prepare_hd5_input
 import scripts.utils_forTraining as train
 import pandas as pd
 import numpy as np
@@ -94,7 +94,7 @@ gene_gm12878_tss = pd.read_csv('./data/K562_GM12878_hg38_ABC_nominated/GM12878/N
 # todo: data_split file need to be updated to common GeneList.txt 
 data_split = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv')
 gene_gm12878_tss = gene_gm12878_tss.merge(data_split[['ENSID', 'Gene name']], left_on='name', right_on='Gene name').drop(columns='name')
-gene_gm12878_tss.to_csv('./data/K562_GM12878_hg38_ABC_nominated/K562/Neighborhoods/GeneList.ENSID.txt', sep='\t', index=False)
+gene_gm12878_tss.to_csv('./data/K562_GM12878_hg38_ABC_nominated/GM12878/Neighborhoods/GeneList.ENSID.txt', sep='\t', index=False)
 
 
 enhancer_gene_k562_100kb_includeNoEnhancerGene = enhancer_gene_k562_100kb.merge(gene_k562_tss, left_on='TargetGene', right_on='Gene name', how='right', suffixes=['', '_gene']).reset_index()

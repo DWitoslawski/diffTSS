@@ -335,15 +335,16 @@ class promoter_enhancer_dataset(Dataset):
         if cell_type == 'K562':
             promoter_df = pd.read_csv(self.data_folder + '/K562_GM12878_hg38_ABC_nominated/K562/Neighborhoods/GeneList.ENSID.txt', sep='\t', index_col='ENSID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
-            self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.new.h5', 'r')
-            #self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffexp/K562_enhancer_promoter_encoding.hg38.new.h5', 'r')
+            #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.new.h5', 'r')
+            self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffexp/K562_enhancer_promoter_encoding.hg38.new.h5', 'r')
             # self.data_h5 = h5py.File('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/K562_DNase_ENCFF257HEE_2kb_noCutOff_hic_noFlankSeq_150kb60e_AllPutative_signals_False_v2.h5')
             self.promoter_df = promoter_df
         elif cell_type == 'GM12878':
             promoter_df = pd.read_csv(self.data_folder + '/K562_GM12878_hg38_ABC_nominated/GM12878/Neighborhoods/GeneList.ENSID.txt', sep='\t', index_col='ENSID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             self.promoter_df = promoter_df 
-            self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
+            #self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
+            self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffexp/GM12878_enhancer_promoter_encoding.hg38.new.h5', 'r')
         self.expr_df = pd.read_csv(self.data_folder + '/GM12878_K562_18377_gene_expr_fromXpresso.csv', index_col='ENSID')
     def __len__(self):
         return len(self.data_h5['ensid'])

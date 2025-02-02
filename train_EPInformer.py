@@ -60,13 +60,6 @@ batch_size = args.batch_size
 expr_type = args.expr_assay
 n_enhancers = 60
 
-cell = 'K562'
-n_extraFeat=3
-expr_type = 'CAGE'
-use_pretrained_encoder = True
-fold_list = list(range(1,2))
-hic_threshold = None
-distance_threshold = 100_000
 #################
 
 today = datetime.now()   # Get date
