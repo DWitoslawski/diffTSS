@@ -64,12 +64,12 @@ def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_
 
 # In[5]:
 # Load ABC enhancer-gene data
-enhancer_gene_k562 = pd.read_csv('./data/K562_GM12878_hg38_ABC_nominated/K562/Gene-enhancer links/AllPutative.txt', sep='\t')
+enhancer_gene_k562 = pd.read_csv('./data/ABC-multiTSS_nominated/K562/Gene-enhancer links/AllPutative.txt', sep='\t')
 # Select the gene-enhancer links within 100kb to the TSS of target gene and remove the promoter element
 enhancer_gene_k562_100kb = enhancer_gene_k562[(enhancer_gene_k562['distance']<=100_000)&(enhancer_gene_k562['distance']>1000)].reset_index()
 enhancer_gene_k562_100kb.to_csv('./data/K562_enhancer_gene_links_100kb.hg38.tsv', index=False, sep='\t')
 
-enhancer_gene_gm12878 = pd.read_csv('./data/K562_GM12878_hg38_ABC_nominated/GM12878/Gene-enhancer links/AllPutative.txt', sep='\t')
+enhancer_gene_gm12878 = pd.read_csv('./data/ABC-multiTSS_nominated/GM12878/Gene-enhancer links/AllPutative.txt', sep='\t')
 # Select the gene-enhancer links within 100kb to the TSS of target gene and remove the promoter element
 enhancer_gene_gm12878_100kb = enhancer_gene_gm12878[(enhancer_gene_gm12878['distance']<=100_000)&(enhancer_gene_gm12878['distance']>1000)].reset_index()
 enhancer_gene_gm12878_100kb.to_csv('./data/GM12878_enhancer_gene_links_100kb.hg38.tsv', index=False, sep='\t')
@@ -81,24 +81,23 @@ enhancer_gene_gm12878_100kb.to_csv('./data/GM12878_enhancer_gene_links_100kb.hg3
 
 
 enhancer_gene_k562_100kb = pd.read_csv('./data/K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
-gene_k562_tss = pd.read_csv('./data/K562_GM12878_hg38_ABC_nominated/K562/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
+gene_k562_tss = pd.read_csv('./data/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
 print(gene_k562_tss)
-# todo: data_split file need to be updated to common GeneList.txt 
-data_split = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv')
-gene_k562_tss = gene_k562_tss.merge(data_split[['ENSID', 'Gene name']], left_on='name', right_on='Gene name').drop(columns='name')
-print(gene_k562_tss)
-gene_k562_tss.to_csv('./data/K562_GM12878_hg38_ABC_nominated/K562/Neighborhoods/GeneList.ENSID.txt', sep='\t', index=False)
+#data_split = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv')
+#gene_k562_tss = gene_k562_tss.merge(data_split[['ENSID', 'Gene name']], left_on='name', right_on='Gene name').drop(columns='name')
+#gene_k562_tss.to_csv('./data/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.ENSID.txt', sep='\t', index=False)
+gene_k562_tss['ENSID'] = gene_k562_tss['Ensembl_ID']
 
 enhancer_gene_gm12878_100kb = pd.read_csv('./data/GM12878_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
-gene_gm12878_tss = pd.read_csv('./data/K562_GM12878_hg38_ABC_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
-# todo: data_split file need to be updated to common GeneList.txt 
-data_split = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv')
-gene_gm12878_tss = gene_gm12878_tss.merge(data_split[['ENSID', 'Gene name']], left_on='name', right_on='Gene name').drop(columns='name')
-gene_gm12878_tss.to_csv('./data/K562_GM12878_hg38_ABC_nominated/GM12878/Neighborhoods/GeneList.ENSID.txt', sep='\t', index=False)
+gene_gm12878_tss = pd.read_csv('./data/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
+#data_split = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv')
+#gene_gm12878_tss = gene_gm12878_tss.merge(data_split[['ENSID', 'Gene name']], left_on='name', right_on='Gene name').drop(columns='name')
+#gene_gm12878_tss.to_csv('./data/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.ENSID.txt', sep='\t', index=False)
+gene_gm12878_tss['ENSID'] = gene_gm12878_tss['Ensembl_ID']
+#
 
-
-enhancer_gene_k562_100kb_includeNoEnhancerGene = enhancer_gene_k562_100kb.merge(gene_k562_tss, left_on='TargetGene', right_on='Gene name', how='right', suffixes=['', '_gene']).reset_index()
-enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.merge(gene_gm12878_tss, left_on='TargetGene', right_on='Gene name', how='right', suffixes=['', '_gene']).reset_index()
+enhancer_gene_k562_100kb_includeNoEnhancerGene = enhancer_gene_k562_100kb.merge(gene_k562_tss, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
+enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.merge(gene_gm12878_tss, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
 
 
 
@@ -136,7 +135,7 @@ np.save('K562.distance.npy', distance_data)
 np.save('K562.activity.npy', activity_data)
 np.save('K562.hic.npy', hic_data)
 
-file_path = './data/K562_enhancer_promoter_encoding.hg38.new.h5'
+file_path = './data/K562_enhancer_promoter_encoding.hg38.h5'
 create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data)
 
 ensid_data, pe_code, distance_data, activity_data, hic_data = prepare_hd5_input(enhancer_gene_gm12878_100kb_includeNoEnhancerGene, gene_gm12878_tss, gene_list, 'GM12878', num_features=3)
@@ -146,7 +145,7 @@ np.save('GM12878.distance.npy', distance_data)
 np.save('GM12878.activity.npy', activity_data)
 np.save('GM12878.hic.npy', hic_data)
 
-file_path = './data/GM12878_enhancer_promoter_encoding.hg38.new.h5'
+file_path = './data/GM12878_enhancer_promoter_encoding.hg38.h5'
 create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data)
 # In[21]:
 

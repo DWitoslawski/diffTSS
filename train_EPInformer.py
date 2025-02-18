@@ -12,6 +12,62 @@ from scipy import stats
 from tqdm import tqdm
 import torch
 from torch.utils.data import Subset, Dataset
+from sklearn.model_selection import GroupKFold
+
+def generate_splits(df, group_name, n_folds=12, val_ratio=0.1, test_ratio=0.1, seed = 42):
+
+    np.random.seed(seed)
+    df = df.reset_index()
+    groups = df[group_name]
+    unique_groups, group_counts = np.unique(groups, return_counts=True)
+    group_sizes = dict(zip(unique_groups, group_counts))
+
+    # Create GroupKFold for 12 folds
+    gkf = GroupKFold(n_splits=12)
+    folds = []
+
+    for train_val_idx, test_idx in gkf.split(df.index, groups=groups):
+        train_val_groups = np.unique(groups[train_val_idx])
+        
+        # Proportionally split train/validation from train_val
+        total_train_val = sum(group_sizes[g] for g in train_val_groups)
+        cumulative = 0
+        val_groups = []
+        
+        for g in train_val_groups:
+            cumulative += group_sizes[g]
+            val_groups.append(g)
+            if cumulative / total_train_val >= val_ratio / (1 - test_ratio):
+                break
+
+        val_idx = np.where(np.isin(groups, val_groups))[0]
+        train_idx = np.setdiff1d(train_val_idx, val_idx)
+        
+        folds.append({'train_idx': df.loc[train_idx,'Ensembl_ID'], 
+                    'val_idx': df.loc[val_idx,'Ensembl_ID'], 
+                    'test_idx': df.loc[test_idx,'Ensembl_ID']})
+    
+    return folds
+
+
+def print_splits(df, folds):
+ 
+    new_split_df = df.copy()    
+    new_split_df = new_split_df.set_index('Ensembl_ID')
+    new_split_df = new_split_df.drop(columns=new_split_df.columns)
+    for fi in range(1, 13):
+        train_ensid = folds[int(fi)-1]['train_idx'].tolist()
+        valid_ensid = folds[int(fi)-1]['val_idx'].tolist()
+        test_ensid = folds[int(fi)-1]['test_idx'].tolist()
+        colname = 'fold'+str(fi)
+        new_split_df[colname] = ''
+        new_split_df.loc[train_ensid,colname] = 'train'
+        new_split_df.loc[valid_ensid,colname] = 'valid'
+        new_split_df.loc[test_ensid,colname] = 'test'
+    print(new_split_df)
+    new_split_df.to_csv("split.txt")
+
+
 
 parser = argparse.ArgumentParser()
 def list_of_strings(arg):
@@ -65,8 +121,21 @@ n_enhancers = 60
 today = datetime.now()   # Get date
 
 datetime_str = today.strftime("%Y-%m-%d-%H")
-split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
+#split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
 saved_model_path = './trained_models/{}/'.format(datetime_str)
+
+EP_df = pd.read_csv('./data/' + 'K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
+promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
+all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold)
+ensid_list = [eid.decode() for eid in all_ds.data_h5['ensid'][:]]
+ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
+ensid_df['idx'] = np.arange(len(ensid_list))
+ensid_df = ensid_df.set_index('ensid')
+
+splits = generate_splits(promoter_df,'chr')
+print_splits(promoter_df, splits)
+
 
 if 'all' in fold_list:
     fold_list = list(range(1, 13))
@@ -76,15 +145,10 @@ for fi in fold_list:
     print("-"*10, 'fold', fi, '-'*10)
     fold_i = 'fold_' + str(fi)
 
-    train_ensid = split_df[split_df[fold_i] == 'train'].index
-    valid_ensid = split_df[split_df[fold_i] == 'valid'].index
-    test_ensid = split_df[split_df[fold_i] == 'test'].index
+    train_ensid = splits[int(fi)-1]['train_idx'].tolist()
+    valid_ensid = splits[int(fi)-1]['val_idx'].tolist()
+    test_ensid = splits[int(fi)-1]['test_idx'].tolist()
 
-    all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold)
-    ensid_list = [eid.decode() for eid in all_ds.data_h5['ensid'][:]]
-    ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
-    ensid_df['idx'] = np.arange(len(ensid_list))
-    ensid_df = ensid_df.set_index('ensid')
     train_common_ensid = list(set(train_ensid).intersection(set(ensid_df.index)))
     train_idx = ensid_df.loc[train_common_ensid]['idx']
     valid_common_ensid = list(set(valid_ensid).intersection(set(ensid_df.index)))

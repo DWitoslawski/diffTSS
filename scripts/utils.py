@@ -51,7 +51,7 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
     chrom = row_0['chr']
     if row_0['TargetGeneTSS'] != row_0['TargetGeneTSS']:
         gene_tss = row_0['tss']
-        gene_name = row_0['Gene name']
+        gene_name = row_0['name_gene']
         chrom = row_0['chr_gene']
     target_interval = kipoiseq.Interval(chrom, int(gene_tss-max_seq_len/2), int(gene_tss+max_seq_len/2))
     promoter_seq = fasta_extractor.extract(target_interval)
@@ -153,7 +153,8 @@ def prepare_input(gene_enhancer_table, gene_list, cell, num_features = 3):
 
 def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, num_features = 3):
     # enhancer_gene_k562_100kb[enhancer_gene_k562_100kb['#chr'] == 'chrX']['TargetGene'].unique()
-    mRNA_feauture = pd.read_csv('./data/mRNA_halflife_features.csv', index_col='gene_id')
+    #mRNA_feauture = pd.read_csv('./data/mRNA_halflife_features.csv', index_col='gene_id')
+    mRNA_feauture = pd.read_csv('./data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
     promoter_signals['PromoterActivity'] = np.sqrt(promoter_signals['H3K27ac.RPM.TSS1Kb']*promoter_signals['DHS.RPM.TSS1Kb'])
     promoter_signals.set_index('ENSID', inplace=True) 
     mRNA_feats = ['UTR5LEN_log10zscore',
@@ -177,8 +178,9 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
         try:
             gene_mRNA_feature = mRNA_feauture.loc[gene, mRNA_feats]
         except KeyError:
-            gene_mRNA_feature = pd.DataFrame(columns=mRNA_feats)
-            gene_mRNA_feature.loc[0] = [None]*len(mRNA_feats)
+            dummy_mRNA_feature = pd.DataFrame(columns=mRNA_feats)
+            dummy_mRNA_feature.loc[0] = [None]*len(mRNA_feats)
+            gene_mRNA_feature = dummy_mRNA_feature.loc[0]
         mRNA_promoter_feat = np.array(list(gene_mRNA_feature.values) + [promoter_signals.loc[gene, 'PromoterActivity']])
         #if num_features == 1:
         #    PE_feat = distance_list[:,np.newaxis]

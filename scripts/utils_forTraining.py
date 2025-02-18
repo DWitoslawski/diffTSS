@@ -333,19 +333,33 @@ class promoter_enhancer_dataset(Dataset):
         self.distance_threshold = distance_threshold
         self.hic_threshold = hic_threshold
         if cell_type == 'K562':
-            promoter_df = pd.read_csv(self.data_folder + '/K562_GM12878_hg38_ABC_nominated/K562/Neighborhoods/GeneList.ENSID.txt', sep='\t', index_col='ENSID')
+            promoter_df = pd.read_csv(self.data_folder + '/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t', index_col='Ensembl_ID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
-            #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.new.h5', 'r')
-            self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffexp/K562_enhancer_promoter_encoding.hg38.new.h5', 'r')
+            self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
+            #self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffTSS/K562_enhancer_promoter_encoding.hg38.h5', 'r')
             # self.data_h5 = h5py.File('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/K562_DNase_ENCFF257HEE_2kb_noCutOff_hic_noFlankSeq_150kb60e_AllPutative_signals_False_v2.h5')
             self.promoter_df = promoter_df
         elif cell_type == 'GM12878':
-            promoter_df = pd.read_csv(self.data_folder + '/K562_GM12878_hg38_ABC_nominated/GM12878/Neighborhoods/GeneList.ENSID.txt', sep='\t', index_col='ENSID')
+            promoter_df = pd.read_csv(self.data_folder + '/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t', index_col='Ensembl_ID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             self.promoter_df = promoter_df 
-            #self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
-            self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffexp/GM12878_enhancer_promoter_encoding.hg38.new.h5', 'r')
-        self.expr_df = pd.read_csv(self.data_folder + '/GM12878_K562_18377_gene_expr_fromXpresso.csv', index_col='ENSID')
+            self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
+            #self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffTSS/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
+        #self.expr_df = pd.read_csv(self.data_folder + '/GM12878_K562_18377_gene_expr_fromXpresso.csv', index_col='ENSID')
+        self.expr_df = pd.read_csv(self.data_folder + 'RNA_CAGE.txt', sep='\t', index_col='ENSID')
+        self.check_expr_df()
+
+    def check_expr_df(self):
+        #'UTR5LEN_log10zscore', 'CDSLEN_log10zscore', 'INTRONLEN_log10zscore', 'UTR3LEN_log10zscore'
+        if 'UTR5LEN_log10zscore' not in self.expr_df.columns:
+            self.expr_df['UTR5LEN_log10zscore'] = stats.zscore(np.log10(self.expr_df['UTR5LEN']+1))
+        if 'CDSLEN_log10zscore' not in self.expr_df.columns:
+            self.expr_df['CDSLEN_log10zscore'] = stats.zscore(np.log10(self.expr_df['CDSLEN']+1))
+        if 'INTRONLEN_log10zscore' not in self.expr_df.columns:
+            self.expr_df['INTRONLEN_log10zscore'] = stats.zscore(np.log10(self.expr_df['INTRONLEN']+1))
+        if 'UTR3LEN_log10zscore' not in self.expr_df.columns:
+            self.expr_df['UTR3LEN_log10zscore'] = stats.zscore(np.log10(self.expr_df['UTR3LEN']+1))
+        
     def __len__(self):
         return len(self.data_h5['ensid'])
 
@@ -365,11 +379,12 @@ class promoter_enhancer_dataset(Dataset):
         enhancers_code = seq_code[1:]
         mRNA_feats = ['UTR5LEN_log10zscore','CDSLEN_log10zscore','INTRONLEN_log10zscore','UTR3LEN_log10zscore','UTR5GC','CDSGC','UTR3GC', 'ORFEXONDENSITY']
         try:
-            rnaFeat = list(self.expr_df.loc[sample_ensid][mRNA_feats].values.astype(float))
+            gene_mRNA_feature = self.expr_df.loc[sample_ensid, mRNA_feats]
         except KeyError:
-            rnaFeat_df = pd.DataFrame(columns=mRNA_feats)
-            rnaFeat_df.loc[0] = [None]*len(mRNA_feats)
-            rnaFeat = list(rnaFeat)
+            dummy_mRNA_feature = pd.DataFrame(columns=mRNA_feats)
+            dummy_mRNA_feature.loc[0] = [0]*len(mRNA_feats)
+            gene_mRNA_feature = dummy_mRNA_feature.loc[0]
+        rnaFeat = list(gene_mRNA_feature.values)
         #rnaFeat = list(self.expr_df.loc[sample_ensid][['UTR5LEN_log10zscore','CDSLEN_log10zscore','INTRONLEN_log10zscore','UTR3LEN_log10zscore','UTR5GC','CDSGC','UTR3GC', 'ORFEXONDENSITY']].values.astype(float))
         pe_activity = np.concatenate([[0], enhancer_intensity]).flatten()
 
