@@ -14,39 +14,39 @@ import torch
 from torch.utils.data import Subset, Dataset
 from sklearn.model_selection import GroupKFold
 
-def generate_splits(df, group_name, n_folds=12, val_ratio=0.1, test_ratio=0.1, seed = 42):
 
+def generate_splits(df, group_name, n_folds=12, seed = 42):
     np.random.seed(seed)
-    df = df.reset_index()
+    #df = df.reset_index()
     groups = df[group_name]
-    unique_groups, group_counts = np.unique(groups, return_counts=True)
-    group_sizes = dict(zip(unique_groups, group_counts))
-
-    # Create GroupKFold for 12 folds
-    gkf = GroupKFold(n_splits=12)
+    chrs = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr11', 'chr12', 'chr8',  'chr10', 'chr17', 'chr9', 'chr16', 'chr19', 'chr15', 'chrX', 'chr20', 'chr13', 'chr14', 'chr18', 'chr21', 'chr22'] 
     folds = []
-
-    for train_val_idx, test_idx in gkf.split(df.index, groups=groups):
-        train_val_groups = np.unique(groups[train_val_idx])
-        
-        # Proportionally split train/validation from train_val
-        total_train_val = sum(group_sizes[g] for g in train_val_groups)
-        cumulative = 0
-        val_groups = []
-        
-        for g in train_val_groups:
-            cumulative += group_sizes[g]
-            val_groups.append(g)
-            if cumulative / total_train_val >= val_ratio / (1 - test_ratio):
-                break
-
-        val_idx = np.where(np.isin(groups, val_groups))[0]
-        train_idx = np.setdiff1d(train_val_idx, val_idx)
-        
-        folds.append({'train_idx': df.loc[train_idx,'Ensembl_ID'], 
-                    'val_idx': df.loc[val_idx,'Ensembl_ID'], 
-                    'test_idx': df.loc[test_idx,'Ensembl_ID']})
     
+    for i in range(0, n_folds):
+        # test_groups
+        if (23-i >= len(chrs)): 
+          test_groups = [chrs[i]]
+        else:
+          test_groups = [chrs[i], chrs[23-i]]
+        # valid_groups
+        if i >= 11:
+          val_groups = [chrs[0]]
+        else:
+          val_groups = [chrs[i+1], chrs[22-i]]
+        print(test_groups)
+        print(val_groups)
+        
+        test_idx = np.where(np.isin(groups, test_groups))[0]
+        val_idx = np.where(np.isin(groups, val_groups))[0]
+        train_idx = np.where(~np.isin(groups, test_groups + val_groups))[0]
+
+        folds.append({
+            'train_idx': df.loc[train_idx, 'Ensembl_ID'],
+            'val_idx': df.loc[val_idx, 'Ensembl_ID'],
+            'test_idx': df.loc[test_idx, 'Ensembl_ID']
+        })
+
+    print(f"Generated {len(folds)} round-robin paired folds.")
     return folds
 
 
