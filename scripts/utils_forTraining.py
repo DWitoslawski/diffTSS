@@ -359,6 +359,7 @@ class promoter_enhancer_dataset(Dataset):
             self.expr_df['INTRONLEN_log10zscore'] = stats.zscore(np.log10(self.expr_df['INTRONLEN']+1))
         if 'UTR3LEN_log10zscore' not in self.expr_df.columns:
             self.expr_df['UTR3LEN_log10zscore'] = stats.zscore(np.log10(self.expr_df['UTR3LEN']+1))
+        self.expr_df = self.expr_df.fillna(0)
         
     def __len__(self):
         return len(self.data_h5['ensid'])
