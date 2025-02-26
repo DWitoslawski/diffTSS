@@ -24,12 +24,15 @@ def get_clones(module, N):
 # This suggests that the network encodes the variable sequence information into a compact vector that represents its "essence."
 # This feature can then be used for downstream tasks such as classification, regression, or clustering.
 class seq_256bp_encoder(nn.Module):
-    def __init__(self, base_size=4, out_dim=128, conv_dim=256):
+    def __init__(self, base_size=4, out_dim=128, conv_dim=256, rna=False):
         super(seq_256bp_encoder, self).__init__()
         self.conv_dim = conv_dim
         self.out_dim = out_dim
-        self.base_size = base_size
-        # cropped_len = 46
+	if rna:
+		self.base_size = base_size + 1
+	else:
+		self.base_size = base_size
+	# cropped_len = 46
         # stem convolution Transforms 4 channels (bases) into higher dim 256 channels.
         # captures local patterns (motifs) via convolution
         self.stem_conv = nn.Sequential(
