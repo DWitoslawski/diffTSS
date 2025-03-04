@@ -36,7 +36,9 @@ class seq_256bp_encoder(nn.Module):
         # stem convolution Transforms 4 channels (bases) into higher dim 256 channels.
         # captures local patterns (motifs) via convolution
         self.stem_conv = nn.Sequential(
-            nn.Conv2d(in_channels = base_size, out_channels = self.conv_dim, kernel_size = (1, 8), stride = 1, padding='same'),
+	    # 4 in_channels (bases), 256 filters/kernels, kernel convolves over 8bp at once, padding = 'same' -> output is same dim as input
+	    # input = [batch_size, 4, 61, 2000], output = [batch_size, 256, 61, 2000] 
+            nn.Conv2d(in_channels = base_size, out_channels = self.conv_dim, kernel_size = (1, 8), stride = 1, padding='same'), # padding='same' is the same as padding=(0,0,3,4)
             nn.ELU(),
         )
         # [batch_size, 256, 256, 1]
@@ -169,7 +171,7 @@ class EPInformer_v2(nn.Module):
     # n_encoder: Number of transformer encoder layers.
     # out_dim: Output feature size.
     # head: Number of attention heads in transformer layers.
-    def __init__(self, base_size = 4, n_encoder=3, out_dim=128, head = 4, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True):
+    def __init__(self, base_size = 4, n_encoder=3, out_dim=128, head = 4, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_encoding=False):
         super(EPInformer_v2, self).__init__()
         self.n_enhancer = n_enhancer
         self.out_dim = out_dim
@@ -179,11 +181,13 @@ class EPInformer_v2(nn.Module):
         self.useBN = useBN
         self.base_size = base_size
         self.useLN = useLN
+	self.rna_encoding = rna_encoding
         if pre_trained_encoder is not None:
             self.seq_encoder = pre_trained_encoder
             self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh'.format(base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer) 
         else:
-            self.seq_encoder = seq_256bp_encoder(base_size=base_size)
+	    
+            self.seq_encoder = seq_256bp_encoder(base_size=base_size, rna=rna_encoding)
             self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh'.format(base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer)
         self.n_encoder = n_encoder
         self.device = device
