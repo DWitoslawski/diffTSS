@@ -181,7 +181,7 @@ class EPInformer_v2(nn.Module):
         self.useBN = useBN
         self.base_size = base_size
         self.useLN = useLN
-	self.rna_encoding = rna_encoding
+        self.rna_encoding = rna_encoding
         if pre_trained_encoder is not None:
             self.seq_encoder = pre_trained_encoder
             self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh'.format(base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer) 
