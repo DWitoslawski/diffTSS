@@ -42,10 +42,11 @@ class FastaStringExtractor:
 def one_hot_encode(sequence):
     return kipoiseq.transforms.functional.one_hot_dna(sequence).astype(np.uint8)
 
-def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.fa', max_n_enhancer = 60, max_distanceToTSS = 100_000, max_seq_len=2000, add_flanking=False):
+def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.fa', max_n_enhancer = 60, max_distanceToTSS = 100_000, max_seq_len=2000, add_flanking=False, rna_encoding=False, rna_df=None):
     fasta_extractor = FastaStringExtractor(fasta_path)
     gene_pe = gene_enhancer_df.sort_values(by='distance')
     row_0 = gene_pe.iloc[0]
+    gene_ensid=row_0['TargetGeneEnsembl_ID']
     gene_name = row_0['TargetGene']
     gene_tss = row_0['TargetGeneTSS']
     chrom = row_0['chr']
@@ -56,6 +57,10 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
     target_interval = kipoiseq.Interval(chrom, int(gene_tss-max_seq_len/2), int(gene_tss+max_seq_len/2))
     promoter_seq = fasta_extractor.extract(target_interval)
     promoter_code = one_hot_encode(promoter_seq)
+    if rna_encoding:
+        rna_df = rna_df[(rna_df[7] >= target_interval.start) & (rna_df[8] <= target_interval.end)]
+        new_index = rna_df[7].values - target_interval.start
+        promoter_code = np.concatenate((promoter_code, rna_df[[9]].set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0).values), axis=1)
     enhancers_code = np.zeros((max_n_enhancer, max_seq_len, 4))
     enhancer_activity = np.zeros(max_n_enhancer)
     enhancer_distance = np.zeros(max_n_enhancer)
@@ -95,7 +100,11 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
         gene_element_pair.append([gene_name, row['name']])
         e_i += 1
     # print(promoter_signals.shape, enhancers_signal.shape)
-    pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0)
+    if rna_encoding:
+        enhancers_code = np.concatenate((enhancers_code, np.zeros((max_n_enhancer, max_seq_len, 1))), axis=2)
+        pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0, dtype=np.float32)
+    else:
+        pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0)
     gene_element_pair = pd.DataFrame(gene_element_pair, columns=['gene', 'element'])
     return pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair
 
@@ -151,7 +160,7 @@ def prepare_input(gene_enhancer_table, gene_list, cell, num_features = 3):
 
 
 
-def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, num_features = 3):
+def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, num_features = 3, rna_encoding=False, rna_df=None):
     # enhancer_gene_k562_100kb[enhancer_gene_k562_100kb['#chr'] == 'chrX']['TargetGene'].unique()
     #mRNA_feauture = pd.read_csv('./data/mRNA_halflife_features.csv', index_col='gene_id')
     mRNA_feauture = pd.read_csv('./data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
@@ -169,7 +178,9 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
     PE_links_list = []
     for gene in tqdm(gene_list):
         gene_df = gene_enhancer_table[gene_enhancer_table['ENSID'] == gene]
-        PE_code, activity_list, distance_list, contact_list, gene_name, PE_links = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False)
+        if rna_encoding:
+            rna_df = rna_df[rna_df[3] == gene]
+        PE_code, activity_list, distance_list, contact_list, gene_name, PE_links = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_encoding=rna_encoding, rna_df=rna_df)
         contact_list = np.concatenate([[0], contact_list])
         distance_list = np.concatenate([[0], distance_list/1000])
         activity_list = np.concatenate([[0], activity_list])
