@@ -179,8 +179,8 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
     for gene in tqdm(gene_list):
         gene_df = gene_enhancer_table[gene_enhancer_table['ENSID'] == gene]
         if rna_encoding:
-            rna_df = rna_df[rna_df[3] == gene]
-        PE_code, activity_list, distance_list, contact_list, gene_name, PE_links = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_encoding=rna_encoding, rna_df=rna_df)
+            gene_rna_df = rna_df[rna_df[3] == gene]
+        PE_code, activity_list, distance_list, contact_list, gene_name, PE_links = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_encoding=rna_encoding, rna_df=gene_rna_df)
         contact_list = np.concatenate([[0], contact_list])
         distance_list = np.concatenate([[0], distance_list/1000])
         activity_list = np.concatenate([[0], activity_list])

@@ -30,9 +30,7 @@ def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_
 
       # Create 'pe_code' dataset (example: 2D array of integers)
       #pe_code_data = np.random.randint(0, 100, size=(10, 20))  # Replace with real data
-      if pe_code_data.dtype != np.uint8:
-          pe_code_data=pe_code_data.astype(np.uint8)
-      h5_file.create_dataset('pe_code', data=pe_code_data, dtype="b1")
+	  h5_file.create_dataset('pe_code', data=pe_code_data, dtype="float32")
 
       # Create 'distance' dataset (example: 2D array with distances)
       #distance_data = np.random.rand(10, 5)  # Replace with real distances
@@ -77,7 +75,7 @@ np.save('K562.distance.rna_encoding.npy', distance_data)
 np.save('K562.activity.rna_encoding.npy', activity_data)
 np.save('K562.hic.rna_encoding.npy', hic_data)
 
-file_path = './data/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5'
+file_path = '/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5'
 create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data)
 
 
@@ -88,5 +86,5 @@ np.save('GM12878.distance.rna_encoding.npy', distance_data)
 np.save('GM12878.activity.rna_encoding.npy', activity_data)
 np.save('GM12878.hic.rna_encoding.npy', hic_data)
 
-file_path = './data/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5'
+file_path = '/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5'
 create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data)
