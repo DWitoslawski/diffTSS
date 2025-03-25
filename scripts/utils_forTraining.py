@@ -321,7 +321,7 @@ def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_s
     return df
 
 class promoter_enhancer_dataset(Dataset):
-    def __init__(self, data_folder = '/content/drive/MyDrive/EPInformer/github/EPInformer/data/', expr_type='CAGE', usePromoterSignal=True, first_signal='distance', signal_type='H3K27ac', cell_type='K562', distance_threshold=None, hic_threshold=None, n_enhancers=50, n_extraFeat=1):
+    def __init__(self, data_folder = '/content/drive/MyDrive/EPInformer/github/EPInformer/data/', expr_type='CAGE', usePromoterSignal=True, first_signal='distance', signal_type='H3K27ac', cell_type='K562', distance_threshold=None, hic_threshold=None, n_enhancers=50, n_extraFeat=1, rna_encoding=False):
         self.expr_type = expr_type
         self.cell_type = cell_type
         self.data_folder = data_folder
@@ -332,20 +332,26 @@ class promoter_enhancer_dataset(Dataset):
         self.usePromoterSignal = usePromoterSignal
         self.distance_threshold = distance_threshold
         self.hic_threshold = hic_threshold
+        self.rna_encoding = rna_encoding
         if cell_type == 'K562':
             promoter_df = pd.read_csv(self.data_folder + '/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t', index_col='Ensembl_ID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
-            self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
-            #self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffTSS/K562_enhancer_promoter_encoding.hg38.h5', 'r')
-            # self.data_h5 = h5py.File('/content/drive/MyDrive/EPInformer/EPInformer_activity/data/K562/K562_DNase_ENCFF257HEE_2kb_noCutOff_hic_noFlankSeq_150kb60e_AllPutative_signals_False_v2.h5')
+            #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
+            if rna_encoding:
+                self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
+            else:
+                self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.hg38.h5', 'r')
             self.promoter_df = promoter_df
         elif cell_type == 'GM12878':
             promoter_df = pd.read_csv(self.data_folder + '/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t', index_col='Ensembl_ID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             self.promoter_df = promoter_df 
-            self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
-            #self.data_h5 = h5py.File('/scratch/han_lab/mhan/diffTSS/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
-        #self.expr_df = pd.read_csv(self.data_folder + '/GM12878_K562_18377_gene_expr_fromXpresso.csv', index_col='ENSID')
+            #self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
+            #self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
+            if rna_encoding:
+                self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
+            else:
+                self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
         self.expr_df = pd.read_csv(self.data_folder + 'RNA_CAGE.txt', sep='\t', index_col='ENSID')
         self.check_expr_df()
 
