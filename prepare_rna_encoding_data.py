@@ -30,7 +30,7 @@ def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_
 
       # Create 'pe_code' dataset (example: 2D array of integers)
       #pe_code_data = np.random.randint(0, 100, size=(10, 20))  # Replace with real data
-	  h5_file.create_dataset('pe_code', data=pe_code_data, dtype="float32")
+      h5_file.create_dataset('pe_code', data=pe_code_data, dtype="float32")
 
       # Create 'distance' dataset (example: 2D array with distances)
       #distance_data = np.random.rand(10, 5)  # Replace with real distances
@@ -64,8 +64,8 @@ enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.
 gene_list = list(gene_k562_tss['ENSID'])
 
 
-rna_df_K562 = pd.read_csv('./data/RNASeq_bw/K562.minus.ENCFF528VFJ.coverage.txt', header=None, sep='\t')
-rna_df_GM12878 = pd.read_csv('./data/RNASeq_bw/GM12878.minus.ENCFF074SXQ.coverage.txt', header=None, sep='\t')
+rna_df_K562 = pd.read_csv('./data/RNASeq_bw/K562.minus.ENCFF528VFJ.coverage.dedup.txt', header=None, sep='\t')
+rna_df_GM12878 = pd.read_csv('./data/RNASeq_bw/GM12878.minus.ENCFF074SXQ.coverage.dedup.txt', header=None, sep='\t')
 
 
 ensid_data, pe_code, distance_data, activity_data, hic_data = prepare_hd5_input(enhancer_gene_k562_100kb_includeNoEnhancerGene, gene_k562_tss, gene_list, 'K562', num_features=3, rna_encoding=True, rna_df=rna_df_K562)
