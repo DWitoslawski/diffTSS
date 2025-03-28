@@ -24,14 +24,11 @@ def get_clones(module, N):
 # This suggests that the network encodes the variable sequence information into a compact vector that represents its "essence."
 # This feature can then be used for downstream tasks such as classification, regression, or clustering.
 class seq_256bp_encoder(nn.Module):
-    def __init__(self, base_size=4, out_dim=128, conv_dim=256, rna=False):
+    def __init__(self, base_size=4, out_dim=128, conv_dim=256):
         super(seq_256bp_encoder, self).__init__()
         self.conv_dim = conv_dim
         self.out_dim = out_dim
-        if rna:
-                self.base_size = base_size + 1
-        else:
-                self.base_size = base_size
+        self.base_size = base_size
 	# cropped_len = 46
         # stem convolution Transforms 4 channels (bases) into higher dim 256 channels.
         # captures local patterns (motifs) via convolution
@@ -179,9 +176,11 @@ class EPInformer_v2(nn.Module):
         self.usePromoterSignal = usePromoterSignal
         self.n_extraFeat = n_extraFeat
         self.useBN = useBN
-        self.base_size = base_size
+		if rna_encoding:
+			self.base_size = base_size + 1
+		else:
+        	self.base_size = base_size
         self.useLN = useLN
-        self.rna_encoding = rna_encoding
         if pre_trained_encoder is not None:
             self.seq_encoder = pre_trained_encoder
             self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh'.format(base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer) 
