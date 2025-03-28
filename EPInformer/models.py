@@ -176,10 +176,10 @@ class EPInformer_v2(nn.Module):
         self.usePromoterSignal = usePromoterSignal
         self.n_extraFeat = n_extraFeat
         self.useBN = useBN
-		if rna_encoding:
-			self.base_size = base_size + 1
-		else:
-        	self.base_size = base_size
+        if rna_encoding:
+            self.base_size = base_size + 1
+        else:
+            self.base_size = base_size
         self.useLN = useLN
         if pre_trained_encoder is not None:
             self.seq_encoder = pre_trained_encoder
