@@ -83,7 +83,7 @@ parser.add_argument('--n_interact_enc',type=int, help='layers of interaction enc
 parser.add_argument('--epochs',type=int, help='training epochs', default=100)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
-parser.add_argument('--rna_encoding', help='input rna into sequence encoder', action='store_true')
+parser.add_argument('--rna_encoding', help='input data contains rna-seq, select rna encoder to be included', action='store_true')
 
 # example
 # python train_EPInformer.py --cell K562  --model_type EPInformer-PE-Activity --expr_assay CAGE --use_pretrained_encoder --batch_size 16 --fold 1
@@ -164,17 +164,17 @@ for fi in fold_list:
     test_ds = Subset(all_ds, test_idx)
 
     if use_pretrained:	
-	if rna_encoding:
-	    pretrained_convNet = enhancer_predictor_256bp(rna=True)    	
-   	else:
+	    if rna_encoding:
+	        pretrained_convNet = enhancer_predictor_256bp(rna=True)    	
+   	    else:
     	    pretrained_convNet = enhancer_predictor_256bp()
         
-	pt_model_name = '{}_seq2activityLog2_leaveChrOut_combinedRS_2bins_bs64_H3K27ac_adamW_erisxdl_r0'.format(cell)
+	    pt_model_name = '{}_seq2activityLog2_leaveChrOut_combinedRS_2bins_bs64_H3K27ac_adamW_erisxdl_r0'.format(cell)
         checkpoint = torch.load("./trained_models/pretrained_enhancer_encoder/{}_best_{}_checkpoint.pt".format(fold_i, pt_model_name), map_location=torch.device('cpu'))
         print('Loading pretrained model ...', pt_model_name)
         model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=pretrained_convNet.encoder, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
     else:
-        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
+        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, rna_encoding=rna_encoding, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
 
     model = model.to(device)
     model.name = model.name.replace('EPInformerV2', args.model_type) + '.' +  cell + '.' + expr_type
