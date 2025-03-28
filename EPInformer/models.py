@@ -185,7 +185,7 @@ class EPInformer_v2(nn.Module):
             self.seq_encoder = pre_trained_encoder
             self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh'.format(base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer) 
         else:
-            self.seq_encoder = seq_256bp_encoder(base_size=base_size, rna=rna_encoding)
+            self.seq_encoder = seq_256bp_encoder(base_size=base_size)
             self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh'.format(base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer)
         self.n_encoder = n_encoder
         self.device = device
