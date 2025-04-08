@@ -94,7 +94,8 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = 'cuda'
+    device = torch.device("cuda:1")
+    #device = 'cuda'
 else:
     device = 'cpu'
 distance_threshold = args.distance_threshold
@@ -168,7 +169,7 @@ for fi in fold_list:
         pt_model_name = '{}_seq2activityLog2_leaveChrOut_combinedRS_2bins_bs64_H3K27ac_adamW_erisxdl_r0'.format(cell)
         checkpoint = torch.load("./trained_models/pretrained_enhancer_encoder/{}_best_{}_checkpoint.pt".format(fold_i, pt_model_name), map_location=torch.device('cpu'))
         print('Loading pretrained model ...', pt_model_name)
-        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=pretrained_convNet.encoder, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
+        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=pretrained_convNet.encoder, rna_encoding=rna_encoding, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
     else:
         model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, rna_encoding=rna_encoding, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
 
