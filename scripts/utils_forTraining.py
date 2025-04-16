@@ -338,9 +338,9 @@ class promoter_enhancer_dataset(Dataset):
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
             if rna_encoding:
-                self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
+                self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
             else:
-                self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.hg38.h5', 'r')
+                self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
             self.promoter_df = promoter_df
         elif cell_type == 'GM12878':
             promoter_df = pd.read_csv(self.data_folder + '/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t', index_col='Ensembl_ID')
@@ -349,9 +349,9 @@ class promoter_enhancer_dataset(Dataset):
             #self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
             #self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
             if rna_encoding:
-                self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
+                self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
             else:
-                self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
+                self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
         self.expr_df = pd.read_csv(self.data_folder + 'RNA_CAGE.txt', sep='\t', index_col='ENSID')
         self.check_expr_df()
 

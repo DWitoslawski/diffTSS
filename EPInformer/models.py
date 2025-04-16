@@ -168,7 +168,7 @@ class EPInformer_v2(nn.Module):
     # n_encoder: Number of transformer encoder layers.
     # out_dim: Output feature size.
     # head: Number of attention heads in transformer layers.
-    def __init__(self, base_size = 4, n_encoder=3, out_dim=128, head = 4, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_encoding=False):
+    def __init__(self, base_size = 4, n_encoder=3, out_dim=128, head = 4, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_encoding=False, rna_embedding=False):
         super(EPInformer_v2, self).__init__()
         self.n_enhancer = n_enhancer
         self.out_dim = out_dim
@@ -181,12 +181,13 @@ class EPInformer_v2(nn.Module):
         else:
             self.base_size = base_size
         self.useLN = useLN
+        self.rna_embedding = rna_embedding
         if pre_trained_encoder is not None:
             self.seq_encoder = pre_trained_encoder
-            self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}rna_enc'.format(base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding) 
+            self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc'.format(base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding) 
         else:
             self.seq_encoder = seq_256bp_encoder(base_size=base_size)
-            self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}rna_enc'.format(base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding)
+            self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc'.format(base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding)
         self.n_encoder = n_encoder
         self.device = device
         # Multi-head self-attention captures long-range dependencies between sequence elements (e.g., interactions between enhancers and promoters).
@@ -213,32 +214,60 @@ class EPInformer_v2(nn.Module):
         # Starting shape: [batch_size, 128, 16, 1]
         # The dilated convolutions with kernel size 3 and increasing dilation rates (2, 4, 6) are expanding the receptive field while processing the sequence. 
         if self.useBN:
-            self.conv_out = nn.Sequential(
-                # First convolution with dilation=2
-                nn.Conv2d(in_channels = 128, out_channels=64, kernel_size=(1, 3), dilation=(1, 2)),
-                nn.BatchNorm2d(64),
-                nn.ELU(),
-                # Second convolution with dilation=4
-                nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 4)),
-                nn.BatchNorm2d(64),
-                nn.ELU(),
-                # Third convolution with dilation=6
-                nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 6)),
-                nn.BatchNorm2d(64),
-                nn.ELU(),
-                # 1x1 convolution
-                # A nn.Conv2d layer with a kernel size of (1, 1) reduces the number of channels from 64 to 32. 
-                # This is commonly used to reduce channel dimensionality while preserving spatial resolution.
-                nn.Conv2d(in_channels = 64, out_channels=32, kernel_size=(1, 1)),
-                nn.BatchNorm2d(32),
-                nn.ELU(),
-                # The linear transformation layer expects input tensors with 101 features per sample.
-                # The layer reduces the dimensionality of the input features to int(self.out_dim / 32) features. 
-                # self.out_dim = 128, for example, the number of output features would be 4
-                nn.Linear(101, int(self.out_dim/32)), 
-                 # nn.Linear(38, 8), # 2kb nn.Linear(101, 8)
-                nn.ELU(),
-            )
+            if self.rna_embedding:
+                self.conv_out = nn.Sequential(
+                    # First convolution with dilation=2
+                    nn.Conv2d(in_channels = 129, out_channels=64, kernel_size=(1, 3), dilation=(1, 2)),
+                    nn.BatchNorm2d(64),
+                    nn.ELU(),
+                    # Second convolution with dilation=4
+                    nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 4)),
+                    nn.BatchNorm2d(64),
+                    nn.ELU(),
+                    # Third convolution with dilation=6
+                    nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 6)),
+                    nn.BatchNorm2d(64),
+                    nn.ELU(),
+                    # 1x1 convolution
+                    # A nn.Conv2d layer with a kernel size of (1, 1) reduces the number of channels from 64 to 32. 
+                    # This is commonly used to reduce channel dimensionality while preserving spatial resolution.
+                    nn.Conv2d(in_channels = 64, out_channels=32, kernel_size=(1, 1)),
+                    nn.BatchNorm2d(32),
+                    nn.ELU(),
+                    # The linear transformation layer expects input tensors with 101 features per sample.
+                    # The layer reduces the dimensionality of the input features to int(self.out_dim / 32) features. 
+                    # self.out_dim = 128, for example, the number of output features would be 4
+                    nn.Linear(101, int(self.out_dim/32)), 
+                     # nn.Linear(38, 8), # 2kb nn.Linear(101, 8)
+                    nn.ELU(),
+                )
+            else:
+                self.conv_out = nn.Sequential(
+                    # First convolution with dilation=2
+                    nn.Conv2d(in_channels = 128, out_channels=64, kernel_size=(1, 3), dilation=(1, 2)),
+                    nn.BatchNorm2d(64),
+                    nn.ELU(),
+                    # Second convolution with dilation=4
+                    nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 4)),
+                    nn.BatchNorm2d(64),
+                    nn.ELU(),
+                    # Third convolution with dilation=6
+                    nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 6)),
+                    nn.BatchNorm2d(64),
+                    nn.ELU(),
+                    # 1x1 convolution
+                    # A nn.Conv2d layer with a kernel size of (1, 1) reduces the number of channels from 64 to 32. 
+                    # This is commonly used to reduce channel dimensionality while preserving spatial resolution.
+                    nn.Conv2d(in_channels = 64, out_channels=32, kernel_size=(1, 1)),
+                    nn.BatchNorm2d(32),
+                    nn.ELU(),
+                    # The linear transformation layer expects input tensors with 101 features per sample.
+                    # The layer reduces the dimensionality of the input features to int(self.out_dim / 32) features. 
+                    # self.out_dim = 128, for example, the number of output features would be 4
+                    nn.Linear(101, int(self.out_dim/32)), 
+                     # nn.Linear(38, 8), # 2kb nn.Linear(101, 8)
+                    nn.ELU(),
+                )
         else:
             self.conv_out = nn.Sequential(
                 nn.Conv2d(in_channels = 128, out_channels=64, kernel_size=(1, 3), dilation=(1, 2)),
@@ -284,26 +313,37 @@ class EPInformer_v2(nn.Module):
                 nn.ReLU(),
         )
 
-    def forward(self, pe_seq, rna_feat=None, extraFeat=None):
+    def forward(self, pe_seq, rna_feat=None, extraFeat=None, rna_seq=None):
         # if enhancers_padding_mask is None:
         enhancers_padding_mask = ~(pe_seq.sum(-1).sum(-1) > 0).bool()
 #         print(enhancers_padding_mask)
         # 1. Get convolutional features from seq_encoder
+        #print(f'pe_seq shape before seq_encoder: {pe_seq.shape}')
         pe_embed = self.seq_encoder(pe_seq)
+        #print(f'pe_embed shape after seq_encoder: {pe_embed.shape}')
         # Shape is [batch_size, 128, 16, 1] 128 is channels, 16 is reduced sequence length 
         # 2. Apply additional convolutions from conv_out
+        
+        if self.rna_embedding:
+            pe_embed = torch.concat([pe_embed, rna_df.unsqueeze(1)], axis=1)
+        
         pe_embed = self.conv_out(pe_embed)
+        #print(f'pe_embed shape after conv_out: {pe_embed.shape}')
         # Shape becomes [batch_size, 32, 16, 4]
         # (32 channels due to final conv layer, 4 comes from the Linear(101, out_dim/32) where out_dim=128)
         # 3. Key reshaping line:
         # permute Reorders dimensions to [batch_size, 16, 32, 4]
         # flatten Flattens last two dimensions: 32 * 4 = 128
         pe_flatten_embed = torch.flatten(pe_embed.permute(0, 2, 1, 3), start_dim=2)
+        #print(f'pe_embed shape after pe_embed.permute(0,2,1,3): {pe_embed.permute(0, 2, 1, 3).shape}')
+        #print(f'pe_flaten_embed shape after torch.flatten(pe_embed.permute(0,2,1,3), start_dim=2): {pe_flatten_embed.shape}')
         # Final shape: [batch_size, 16, 128]
         # This matches the required shape for attention: [batch_size, sequence_length, embedding_dim]
         # sequence_length = 16 (reduced from 256), embedding_dim = 128 (32 channels * 4) 
         if extraFeat is not None:
+            #print(f'pe_flatten_embed shape after torch.concat: {torch.concat([pe_flatten_embed, extraFeat], axis=-1).permute(0,2,1).shape}')
             pe_flatten_embed = self.add_pos_conv(torch.concat([pe_flatten_embed, extraFeat], axis=-1).permute(0,2,1)).permute(0,2,1)
+            #print(f'pe_flatten_embed shape after add_pos_conv: {pe_flatten_embed.shape} - final shape going into attn_encoder')
         attn_list = []
         for i in range(self.n_encoder):
             pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=self.attn_mask.to(self.device))

@@ -94,7 +94,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:7")
     #device = 'cuda'
 else:
     device = 'cpu'
@@ -127,7 +127,7 @@ datetime_str = today.strftime("%Y-%m-%d-%H")
 #split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
 saved_model_path = './trained_models/{}/'.format(datetime_str)
 
-EP_df = pd.read_csv('./data/' + 'K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+EP_df = pd.read_csv(f'./data/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
 promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
 all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold)
