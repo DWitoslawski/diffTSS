@@ -65,7 +65,7 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
         #print(f'And reindexed:\n{rna_df[[9]].set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)}')
         promoter_code = np.concatenate((promoter_code, rna_df[[9]].set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)), axis=1)
     if rna_embedding:
-        rna_df = np.concatenate([rna_df.to_numpy().reshape(1, 125), np.zeros([60, 125])])
+        rna_df = np.concatenate([rna_df.reshape(1, 125), np.zeros([60, 125])])
     enhancers_code = np.zeros((max_n_enhancer, max_seq_len, 4))
     enhancer_activity = np.zeros(max_n_enhancer)
     enhancer_distance = np.zeros(max_n_enhancer)
