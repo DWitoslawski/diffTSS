@@ -94,7 +94,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:7")
+    device = torch.device("cuda:2")
     #device = 'cuda'
 else:
     device = 'cpu'
