@@ -111,6 +111,7 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
     else:
         pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0)
     gene_element_pair = pd.DataFrame(gene_element_pair, columns=['gene', 'element'])
+    print(f"RNA_DF in encode_enhancer_promoter_links: {rna_df.shape}\nPE_CODE: {pe_code.shape}")
     if rna_embedding:
         return pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair, rna_df
     return pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair
@@ -190,9 +191,8 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
             gene_rna_df = rna_df[rna_df[3] == gene]
         if rna_embedding:
             print(f'RNA DF: {rna_df.shape}')
-            gene_rna_df = rna_df[gene_list.index(gene)].copy()
-            print(f'GENE RNA DF: {gene_rna_df.shape}')
-        PE_code, activity_list, distance_list, contact_list, gene_name, PE_links, rna_df = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_encoding=rna_encoding, rna_embedding=rna_embedding, rna_df=gene_rna_df)
+            gene_rna_df = rna_df[gene_list.index(gene)]
+        PE_code, activity_list, distance_list, contact_list, gene_name, PE_links, gene_rna_df = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_encoding=rna_encoding, rna_embedding=rna_embedding, rna_df=gene_rna_df)
         contact_list = np.concatenate([[0], contact_list])
         distance_list = np.concatenate([[0], distance_list/1000])
         activity_list = np.concatenate([[0], activity_list])
@@ -220,7 +220,7 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
         PE_contact_list.append(contact_list)
         mRNA_promoter_list.append(mRNA_promoter_feat)
         PE_links_list.append(PE_links)
-        rna_df_list.append(rna_df)
+        rna_df_list.append(gene_rna_df)
     PE_links_df = pd.concat(PE_links_list)
     PE_code_list = np.array(PE_code_list)
     #PE_feat_list = np.array(PE_feat_list)
