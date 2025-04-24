@@ -84,6 +84,7 @@ parser.add_argument('--epochs',type=int, help='training epochs', default=100)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
 parser.add_argument('--rna_encoding', help='input data contains rna-seq, select rna encoder to be included', action='store_true')
+parser.add_argument('--rna_embedding', help='input data contains rna-seq in bins, to be added to rna embedding as another channel', action='store_true')
 
 # example
 # python train_EPInformer.py --cell K562  --model_type EPInformer-PE-Activity --expr_assay CAGE --use_pretrained_encoder --batch_size 16 --fold 1
@@ -94,7 +95,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:2")
+    device = torch.device("cuda:1")
     #device = 'cuda'
 else:
     device = 'cpu'
@@ -113,6 +114,7 @@ elif args.model_type == 'EPInformer-PE-Activity-HiC':
 
 use_pretrained = args.use_pretrained_encoder
 rna_encoding = args.rna_encoding
+rna_embedding = args.rna_embedding
 fold_list = args.fold 
 n_encoder = args.n_interact_enc
 batch_size = args.batch_size 
@@ -130,7 +132,7 @@ saved_model_path = './trained_models/{}/'.format(datetime_str)
 EP_df = pd.read_csv(f'./data/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
 promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
-all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold)
+all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_encoding=rna_encoding, rna_embedding=rna_embedding)
 ensid_list = [eid.decode() for eid in all_ds.data_h5['ensid'][:]]
 ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
 ensid_df['idx'] = np.arange(len(ensid_list))
