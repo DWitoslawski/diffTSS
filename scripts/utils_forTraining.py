@@ -340,7 +340,7 @@ class promoter_enhancer_dataset(Dataset):
             #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
             if rna_encoding:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_encoding.log10.hg38.h5', 'r')
-            else if rna_embedding:
+            elif rna_embedding:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
@@ -353,7 +353,7 @@ class promoter_enhancer_dataset(Dataset):
             #self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
             if rna_encoding:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_encoding.log10.hg38.h5', 'r')
-            else if rna_embedding:
+            elif rna_embedding:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
