@@ -35,7 +35,7 @@ class seq_256bp_encoder(nn.Module):
         self.stem_conv = nn.Sequential(
 	    # 4 in_channels (bases), 256 filters/kernels, kernel convolves over 8bp at once, padding = 'same' -> output is same dim as input
 	    # input = [batch_size, 4, 61, 2000], output = [batch_size, 256, 61, 2000] 
-            nn.Conv2d(in_channels = base_size, out_channels = self.conv_dim, kernel_size = (1, 8), stride = 1, padding='same'), # padding='same' is the same as padding=(0,0,3,4)
+            nn.Conv2d(in_channels = self.base_size, out_channels = self.conv_dim, kernel_size = (1, 8), stride = 1, padding='same'), # padding='same' is the same as padding=(0,0,3,4)
             nn.ELU(),
         )
         # [batch_size, 256, 256, 1]
@@ -184,10 +184,10 @@ class EPInformer_v2(nn.Module):
         self.rna_embedding = rna_embedding
         if pre_trained_encoder is not None:
             self.seq_encoder = pre_trained_encoder
-            self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc.{}RNA_emb'.format(base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding, rna_embedding) 
+            self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc.{}RNA_emb'.format(self.base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding, rna_embedding) 
         else:
             self.seq_encoder = seq_256bp_encoder(base_size=self.base_size)
-            self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc.{}RNA_emb'.format(base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding, rna_embedding)
+            self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc.{}RNA_emb'.format(self.base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding, rna_embedding)
         self.n_encoder = n_encoder
         self.device = device
         # Multi-head self-attention captures long-range dependencies between sequence elements (e.g., interactions between enhancers and promoters).
