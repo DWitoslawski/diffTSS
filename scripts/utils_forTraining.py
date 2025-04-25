@@ -145,7 +145,7 @@ class EarlyStopping:
         # torch.save(model.state_dict(), self.path)
         self.val_loss_min = val_loss
 
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-6, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -198,7 +198,9 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             #     pred_expr, _ = net(input_PE)
             # elif net_type == 'seq_feat_dist':
             pred_expr, _ = net(input_PE, input_feat, input_dist)
+            print(f'\nPred: {pred_expr}')
             loss_expr = L_expr(pred_expr, y_expr)
+            print(f'Loss: {loss_expr}')
             loss_e += loss_expr.item()
 
             loss = loss_expr# + loss_intensity + loss_contact
