@@ -320,9 +320,9 @@ class EPInformer_v2(nn.Module):
         enhancers_padding_mask = ~(pe_seq.sum(-1).sum(-1) > 0).bool()
 #         print(enhancers_padding_mask)
         # 1. Get convolutional features from seq_encoder
-        print(f'pe_seq before seq_encoder: {pe_seq}')
+        #print(f'pe_seq before seq_encoder: {pe_seq}')
         pe_embed = self.seq_encoder(pe_seq)
-        print(f'pe_embed after seq_encoder: {pe_embed}')
+        #print(f'pe_embed after seq_encoder: {pe_embed}')
         # Shape is [batch_size, 128, 16, 1] 128 is channels, 16 is reduced sequence length 
         # 2. Apply additional convolutions from conv_out
         
@@ -330,22 +330,22 @@ class EPInformer_v2(nn.Module):
             pe_embed = torch.concat([pe_embed, rna_seq.unsqueeze(1)], axis=1)
         
         pe_embed = self.conv_out(pe_embed)
-        print(f'pe_embed after conv_out: {pe_embed}')
+        #print(f'pe_embed after conv_out: {pe_embed}')
         # Shape becomes [batch_size, 32, 16, 4]
         # (32 channels due to final conv layer, 4 comes from the Linear(101, out_dim/32) where out_dim=128)
         # 3. Key reshaping line:
         # permute Reorders dimensions to [batch_size, 16, 32, 4]
         # flatten Flattens last two dimensions: 32 * 4 = 128
         pe_flatten_embed = torch.flatten(pe_embed.permute(0, 2, 1, 3), start_dim=2)
-        print(f'pe_embed after pe_embed.permute(0,2,1,3): {pe_embed.permute(0, 2, 1, 3)}')
-        print(f'pe_flaten_embed after torch.flatten(pe_embed.permute(0,2,1,3), start_dim=2): {pe_flatten_embed}')
+        #print(f'pe_embed after pe_embed.permute(0,2,1,3): {pe_embed.permute(0, 2, 1, 3)}')
+        #print(f'pe_flaten_embed after torch.flatten(pe_embed.permute(0,2,1,3), start_dim=2): {pe_flatten_embed}')
         # Final shape: [batch_size, 16, 128]
         # This matches the required shape for attention: [batch_size, sequence_length, embedding_dim]
         # sequence_length = 16 (reduced from 256), embedding_dim = 128 (32 channels * 4) 
         if extraFeat is not None:
-            print(f'pe_flatten_embed shape after torch.concat: {torch.concat([pe_flatten_embed, extraFeat], axis=-1).permute(0,2,1)}')
+            #print(f'pe_flatten_embed shape after torch.concat: {torch.concat([pe_flatten_embed, extraFeat], axis=-1).permute(0,2,1)}')
             pe_flatten_embed = self.add_pos_conv(torch.concat([pe_flatten_embed, extraFeat], axis=-1).permute(0,2,1)).permute(0,2,1)
-            print(f'pe_flatten_embed shape after add_pos_conv: {pe_flatten_embed} - final shape going into attn_encoder')
+            #print(f'pe_flatten_embed shape after add_pos_conv: {pe_flatten_embed} - final shape going into attn_encoder')
         attn_list = []
         for i in range(self.n_encoder):
             pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=self.attn_mask.to(self.device))

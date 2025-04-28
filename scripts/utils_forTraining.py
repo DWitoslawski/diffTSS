@@ -198,7 +198,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             #     pred_expr, _ = net(input_PE)
             # elif net_type == 'seq_feat_dist':
             pred_expr, _ = net(input_PE, input_feat, input_dist)
-            print(f'\nPred: {pred_expr}')
+            #print(f'\nPred: {pred_expr}')
             loss_expr = L_expr(pred_expr, y_expr)
             print(f'Loss: {loss_expr}')
             loss_e += loss_expr.item()
@@ -340,9 +340,9 @@ class promoter_enhancer_dataset(Dataset):
             promoter_df = pd.read_csv(self.data_folder + '/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t', index_col='Ensembl_ID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
-            if rna_encoding:
+            if self.rna_encoding:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_encoding.log10.hg38.h5', 'r')
-            elif rna_embedding:
+            if self.rna_embedding:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
@@ -355,7 +355,7 @@ class promoter_enhancer_dataset(Dataset):
             #self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
             if rna_encoding:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_encoding.log10.hg38.h5', 'r')
-            elif rna_embedding:
+            if rna_embedding:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
