@@ -58,12 +58,13 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
     promoter_seq = fasta_extractor.extract(target_interval)
     promoter_code = one_hot_encode(promoter_seq)
     if rna_encoding:
+        gene_len = row_0['end'] - row_0['start']
+        rna_signal = rna_df[[9]]
         rna_df = rna_df[(rna_df[7] >= target_interval.start) & (rna_df[8] <= target_interval.end)]
         new_index = rna_df[7].values - target_interval.start
-        #print(f'For GeneID {gene_ensid}: \nrna_df[9] with new index: \n{rna_df[[9]].set_index(new_index)} \n')
-        #print(f'Unique indices of rna_df[9]: \n{np.unique(rna_df[[9]].set_index(new_index).index)}\nwith length {len(np.unique(rna_df[[9]].set_index(new_index).index))}')
-        #print(f'And reindexed:\n{rna_df[[9]].set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)}')
-        promoter_code = np.concatenate((promoter_code, rna_df[[9]].set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)), axis=1)
+        rna_signal = rna_signal.set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)
+        rna_signal = rna_signal.apply(lambda x: np.log10((x * 1000 / gene_len) +1))
+        promoter_code = np.concatenate((promoter_code, rna_signal), axis=1)
     if rna_embedding:
         rna_df = np.concatenate([rna_df.reshape(1, 125), np.zeros([60, 125])])
     enhancers_code = np.zeros((max_n_enhancer, max_seq_len, 4))

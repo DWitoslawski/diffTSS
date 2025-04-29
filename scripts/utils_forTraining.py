@@ -390,9 +390,9 @@ class promoter_enhancer_dataset(Dataset):
             promoter_activity = self.promoter_df.loc[sample_ensid]['normalized_dhs']
             # enhancer_intensity = dhs_intensity
         promoter_code = seq_code[:1]
-        if self.rna_encoding:
+        #if self.rna_encoding:
             #print(f'Promoter code shape: {promoter_code.squeeze().shape}')
-            promoter_code[:, :, 4] = promoter_code[:, :, 4] / 4
+            #promoter_code[:, :, 4] = promoter_code[:, :, 4] / 4
             #promoter_code[:, :, :4] = promoter_code[:, 4].reshape(-1, 1) * promoter_code[:, :4].squeeze()
         enhancers_code = seq_code[1:]
         mRNA_feats = ['UTR5LEN_log10zscore','CDSLEN_log10zscore','INTRONLEN_log10zscore','UTR3LEN_log10zscore','UTR5GC','CDSGC','UTR3GC', 'ORFEXONDENSITY']
