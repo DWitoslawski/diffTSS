@@ -64,8 +64,8 @@ enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.
 gene_list = list(gene_k562_tss['ENSID'])
 
 
-rna_df_K562 = pd.read_csv('./data/RNASeq_bw/K562.minus.ENCFF528VFJ.coverage.dedup.txt', header=None, sep='\t')
-rna_df_GM12878 = pd.read_csv('./data/RNASeq_bw/GM12878.minus.ENCFF074SXQ.coverage.dedup.txt', header=None, sep='\t')
+rna_df_K562 = pd.read_csv('./data/RNASeq_bw/K562.minus.ENCFF528VFJ.coverage.txt', header=None, sep='\t')
+rna_df_GM12878 = pd.read_csv('./data/RNASeq_bw/GM12878.minus.ENCFF074SXQ.coverage.txt', header=None, sep='\t')
 
 
 ensid_data, pe_code, distance_data, activity_data, hic_data = prepare_hd5_input(enhancer_gene_k562_100kb_includeNoEnhancerGene, gene_k562_tss, gene_list, 'K562', num_features=3, rna_encoding=True, rna_df=rna_df_K562)
