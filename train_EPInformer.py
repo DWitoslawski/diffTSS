@@ -95,7 +95,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:3")
     #device = 'cuda'
 else:
     device = 'cpu'
@@ -173,7 +173,7 @@ for fi in fold_list:
         print('Loading pretrained model ...', pt_model_name)
         model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=pretrained_convNet.encoder, rna_encoding=rna_encoding, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
     else:
-        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, rna_encoding=rna_encoding, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
+        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, rna_encoding=rna_encoding, rna_embedding=rna_embedding, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
 
     model = model.to(device)
     model.name = model.name.replace('EPInformerV2', args.model_type) + '.' +  cell + '.' + expr_type

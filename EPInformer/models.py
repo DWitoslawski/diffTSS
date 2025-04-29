@@ -320,9 +320,9 @@ class EPInformer_v2(nn.Module):
         enhancers_padding_mask = ~(pe_seq.sum(-1).sum(-1) > 0).bool()
 #         print(enhancers_padding_mask)
         # 1. Get convolutional features from seq_encoder
-        #print(f'pe_seq before seq_encoder: {pe_seq}')
+        print(f'pe_seq before seq_encoder: {pe_seq}')
         pe_embed = self.seq_encoder(pe_seq)
-        #print(f'pe_embed after seq_encoder: {pe_embed}')
+        print(f'pe_embed after seq_encoder: {pe_embed}')
         # Shape is [batch_size, 128, 16, 1] 128 is channels, 16 is reduced sequence length 
         # 2. Apply additional convolutions from conv_out
         

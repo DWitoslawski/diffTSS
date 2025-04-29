@@ -145,7 +145,7 @@ class EarlyStopping:
         # torch.save(model.state_dict(), self.path)
         self.val_loss_min = val_loss
 
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-6, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -342,7 +342,7 @@ class promoter_enhancer_dataset(Dataset):
             #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
             if self.rna_encoding:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_encoding.log10.hg38.h5', 'r')
-            if self.rna_embedding:
+            elif self.rna_embedding:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
@@ -355,7 +355,7 @@ class promoter_enhancer_dataset(Dataset):
             #self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
             if rna_encoding:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_encoding.log10.hg38.h5', 'r')
-            if rna_embedding:
+            elif rna_embedding:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
@@ -390,6 +390,10 @@ class promoter_enhancer_dataset(Dataset):
             promoter_activity = self.promoter_df.loc[sample_ensid]['normalized_dhs']
             # enhancer_intensity = dhs_intensity
         promoter_code = seq_code[:1]
+        if self.rna_encoding:
+            #print(f'Promoter code shape: {promoter_code.squeeze().shape}')
+            promoter_code[:, :, 4] = promoter_code[:, :, 4] / 4
+            #promoter_code[:, :, :4] = promoter_code[:, 4].reshape(-1, 1) * promoter_code[:, :4].squeeze()
         enhancers_code = seq_code[1:]
         mRNA_feats = ['UTR5LEN_log10zscore','CDSLEN_log10zscore','INTRONLEN_log10zscore','UTR3LEN_log10zscore','UTR5GC','CDSGC','UTR3GC', 'ORFEXONDENSITY']
         try:
