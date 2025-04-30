@@ -200,7 +200,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             pred_expr, _ = net(input_PE, input_feat, input_dist)
             #print(f'\nPred: {pred_expr}')
             loss_expr = L_expr(pred_expr, y_expr)
-            print(f'Loss: {loss_expr}')
+            #print(f'Loss: {loss_expr}')
             loss_e += loss_expr.item()
 
             loss = loss_expr# + loss_intensity + loss_contact

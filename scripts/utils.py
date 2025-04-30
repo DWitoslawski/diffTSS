@@ -192,6 +192,8 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
         if rna_embedding:
             gene_rna_df = rna_df[gene_list.index(gene)]
             PE_code, activity_list, distance_list, contact_list, gene_name, PE_links, gene_rna_df = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_encoding=rna_encoding, rna_embedding=rna_embedding, rna_df=gene_rna_df)
+            rna_df_list.append(gene_rna_df)
+
         else:
             PE_code, activity_list, distance_list, contact_list, gene_name, PE_links = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_encoding=rna_encoding, rna_embedding=rna_embedding, rna_df=gene_rna_df)
         contact_list = np.concatenate([[0], contact_list])
@@ -221,7 +223,6 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
         PE_contact_list.append(contact_list)
         mRNA_promoter_list.append(mRNA_promoter_feat)
         PE_links_list.append(PE_links)
-        rna_df_list.append(gene_rna_df)
     PE_links_df = pd.concat(PE_links_list)
     PE_code_list = np.array(PE_code_list)
     #PE_feat_list = np.array(PE_feat_list)
@@ -229,9 +230,9 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
     PE_activity_list = np.array(PE_activity_list)
     PE_contact_list = np.array(PE_contact_list)
     mRNA_promoter_list = np.array(mRNA_promoter_list)
-    rna_df_list = np.array(rna_df_list)
     #return PE_code_list, PE_feat_list, mRNA_promoter_list, PE_links_df
     if rna_embedding:
+        rna_df_list = np.array(rna_df_list)
         return gene_list, PE_code_list, PE_distance_list, PE_activity_list, PE_contact_list, rna_df_list
     return gene_list, PE_code_list, PE_distance_list, PE_activity_list, PE_contact_list
  
