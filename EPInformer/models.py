@@ -170,7 +170,7 @@ class EPInformer_v2(nn.Module):
     # n_encoder: Number of transformer encoder layers.
     # out_dim: Output feature size.
     # head: Number of attention heads in transformer layers.
-    def __init__(self, base_size = 4, n_encoder=3, out_dim=128, head = 4, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_encoding=False, rna_embedding=False):
+    def __init__(self, base_size = 4, n_encoder=3, out_dim=128, head = 4, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_encoding=False, rna_embedding=False, rna_transform=None):
         super(EPInformer_v2, self).__init__()
         self.n_enhancer = n_enhancer
         self.out_dim = out_dim
@@ -184,12 +184,13 @@ class EPInformer_v2(nn.Module):
             self.base_size = base_size
         self.useLN = useLN
         self.rna_embedding = rna_embedding
+        self.rna_transform = rna_transform if rna_transform is not None else 'no'
         if pre_trained_encoder is not None:
             self.seq_encoder = pre_trained_encoder
             self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc.{}RNA_emb'.format(self.base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding, rna_embedding) 
         else:
             self.seq_encoder = seq_256bp_encoder(base_size=self.base_size)
-            self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc.{}RNA_emb'.format(self.base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding, rna_embedding)
+            self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA_enc.{}RNA_emb.{}RNA_transform'.format(self.base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_encoding, rna_embedding, rna_transform)
         self.n_encoder = n_encoder
         self.device = device
         # Multi-head self-attention captures long-range dependencies between sequence elements (e.g., interactions between enhancers and promoters).
@@ -315,7 +316,7 @@ class EPInformer_v2(nn.Module):
                 nn.ReLU(),
         )
 
-    def forward(self, pe_seq, rna_feat=None, extraFeat=None, rna_seq=None):
+    def forward(self, pe_seq, rna_feat=None, extraFeat=None, rna_emb=None):
         # if enhancers_padding_mask is None:
         enhancers_padding_mask = ~(pe_seq.sum(-1).sum(-1) > 0).bool()
 #         print(enhancers_padding_mask)
@@ -327,7 +328,7 @@ class EPInformer_v2(nn.Module):
         # 2. Apply additional convolutions from conv_out
         
         if self.rna_embedding:
-            pe_embed = torch.concat([pe_embed, rna_seq.unsqueeze(1)], axis=1)
+            pe_embed = torch.concat([pe_embed, rna_emb.unsqueeze(1)], axis=1)
         
         pe_embed = self.conv_out(pe_embed)
         #print(f'pe_embed after conv_out: {pe_embed}')
