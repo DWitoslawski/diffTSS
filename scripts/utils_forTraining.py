@@ -145,7 +145,7 @@ class EarlyStopping:
         # torch.save(model.state_dict(), self.path)
         self.val_loss_min = val_loss
 
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_embedding=False, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -183,7 +183,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
         for data in tqdm(trainloader):
             # print(inputs.size())
             optimizer.zero_grad()
-            if rna_embedding:
+            if rna_method == 'embedding':
                 input_PE, input_feat, input_dist, y_expr, eid, rna_emb = data
             else:
                 input_PE, input_feat, input_dist, y_expr, eid = data
@@ -200,7 +200,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             # elif net_type == 'seq':
             #     pred_expr, _ = net(input_PE)
             # elif net_type == 'seq_feat_dist':
-            if rna_embedding:
+            if rna_method == 'embedding':
                 rna_emb = rna_emb.float().to(device)
                 pred_expr, _ = net(input_PE, input_feat, input_dist, rna_emb)
             else:
@@ -224,7 +224,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
         #             'Validation_R2_allGene', 'Validation_PearsonR_weGene', 'Validation_R2_weGene', 'Saved?']
 
 
-        val_mse_all, val_r2_all, val_pr_all = validate(net, valid_ds, n_enhancers=n_enhancers, rna_embedding=rna_embedding, device=device)
+        val_mse_all, val_r2_all, val_pr_all = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
         val_r2 = val_r2_all
         val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
         print('Valdaition R square all:', val_r2_all)
@@ -238,8 +238,8 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             break
     return lrs
 
-def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_size=16, device = 'cuda'):
-    validloader = data_utils.DataLoader(valid_ds, batch_size=batch_size, rna_embedding=False, pin_memory=True, num_workers=0)
+def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_size=16, rna_method=None, device = 'cuda'):
+    validloader = data_utils.DataLoader(valid_ds, batch_size=batch_size, pin_memory=True, num_workers=0)
     net.eval()
     L_expr = nn.MSELoss()
     
@@ -249,7 +249,7 @@ def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_s
         loss_e = 0
         for data in validloader:
             # print(inputs.size())
-            if rna_embedding:
+            if rna_method == 'embedding':
                 input_PE, input_feat, input_dist, y_expr, eid, rna_emb = data
             else:
                 input_PE, input_feat, input_dist, y_expr, eid = data
@@ -261,7 +261,7 @@ def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_s
             # input_PEmask = ~(input_PE.sum(-1).sum(-1) > 0).bool().to(device)
             y_expr = y_expr.float().to(device)
             # print(input_P.shape, input_E.shape, input_Emask.shape)
-            if rna_embedding:
+            if rna_method == 'embedding':
                 rna_emb = rna_emb.float().to(device)
                 pred_expr, _ = net(input_PE, input_feat, input_dist, rna_emb)
             else:
@@ -282,8 +282,8 @@ def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_s
     print("valid: mse", mse, "R_sqaure", r_value**2, 'peasonr', peasonr)
     return mse, r_value**2, peasonr
 
-def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_size=64, device = 'cuda', model_type='best'):
-    testloader = data_utils.DataLoader(test_ds, batch_size=batch_size, rna_embedding=False, pin_memory=True, num_workers=0)
+def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_size=64, rna_method=None, device = 'cuda', model_type='best'):
+    testloader = data_utils.DataLoader(test_ds, batch_size=batch_size, pin_memory=True, num_workers=0)
     # checkpoint = torch.load(saved_model_path + "/fold_" + str(fold_i) + "_"+model_name+"_checkpoint.pt")
     # net.load_state_dict(checkpoint['model_state_dict'])
     # except:
@@ -302,7 +302,7 @@ def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_s
         actual = []
         ensid_list = []
         for data in tqdm(testloader):
-            if rna_embedding:
+            if rna_method == 'embedding':
                 input_PE, input_feat, input_dist, y_expr, eid, rna_emb = data
             else:
                 input_PE, input_feat, input_dist, y_expr, eid = data            
@@ -313,7 +313,7 @@ def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_s
             # input_PEmask = ~(input_PE.sum(-1).sum(-1) > 0).bool().to(device)
             y_expr = y_expr.float().to(device)
             # print(input_P.shape, input_E.shape, input_Emask.shape)
-            if rna_embedding:
+            if rna_method == 'embedding':
                 rna_emb = rna_emb.float().to(device)
                 pred_expr, _ = net(input_PE, input_feat, input_dist, rna_emb)
             else:
@@ -344,7 +344,7 @@ def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_s
     return df
 
 class promoter_enhancer_dataset(Dataset):
-    def __init__(self, data_folder = '/content/drive/MyDrive/EPInformer/github/EPInformer/data/', expr_type='CAGE', usePromoterSignal=True, first_signal='distance', signal_type='H3K27ac', cell_type='K562', distance_threshold=None, hic_threshold=None, n_enhancers=50, n_extraFeat=1, rna_encoding=False, rna_embedding=False, rna_transform=None):
+    def __init__(self, data_folder = '/content/drive/MyDrive/EPInformer/github/EPInformer/data/', expr_type='CAGE', usePromoterSignal=True, first_signal='distance', signal_type='H3K27ac', cell_type='K562', distance_threshold=None, hic_threshold=None, n_enhancers=50, n_extraFeat=1, rna_method=None, rna_transform=None):
         self.expr_type = expr_type
         self.cell_type = cell_type
         self.data_folder = data_folder
@@ -355,17 +355,18 @@ class promoter_enhancer_dataset(Dataset):
         self.usePromoterSignal = usePromoterSignal
         self.distance_threshold = distance_threshold
         self.hic_threshold = hic_threshold
-        self.rna_encoding = rna_encoding
-        self.rna_embedding = rna_embedding
+        self.rna_method = rna_method
         self.rna_transform = rna_transform
         if cell_type == 'K562':
             promoter_df = pd.read_csv(self.data_folder + '/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t', index_col='Ensembl_ID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
-            if self.rna_encoding:
+            if self.rna_method == 'encoding':
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
-            elif self.rna_embedding:
+            elif self.rna_method == 'embedding':
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
+            elif self.rna_method == 'one-hot':
+                self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_one_hot.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
             self.promoter_df = promoter_df
@@ -375,10 +376,12 @@ class promoter_enhancer_dataset(Dataset):
             self.promoter_df = promoter_df 
             #self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
             #self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
-            if rna_encoding:
+            if self.rna_method == 'encoding':
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
-            elif rna_embedding:
+            elif self.rna_method == 'embedding':
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
+            elif self.rna_method == 'one-hot':
+                self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_one_hot.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
         self.expr_df = pd.read_csv(self.data_folder + 'RNA_CAGE.txt', sep='\t', index_col='ENSID')
@@ -413,7 +416,7 @@ class promoter_enhancer_dataset(Dataset):
         enhancer_distance = self.data_h5['distance'][idx,1:]
         enhancer_intensity = self.data_h5['activity'][idx,1:]
         enhancer_contact = self.data_h5['hic'][idx,1:]
-        if self.rna_embedding:
+        if self.rna_method == 'embedding':
             rna_embedding = self.data_h5['rna'][idx]
 
         if self.signal_type == 'H3K27ac':
@@ -423,9 +426,9 @@ class promoter_enhancer_dataset(Dataset):
             # enhancer_intensity = dhs_intensity
         
         if self.rna_transform is not None:
-            if self.rna_encoding:
+            if self.rna_method == 'encoding':
                 seq_code[:, :, 4] = self.transform(seq_code[:, :, 4])
-            if self.rna_embedding:
+            if self.rna_method == 'embedding':
                 rna_embedding = self.transform(rna_embedding)
         
         promoter_code = seq_code[:1]
@@ -497,8 +500,8 @@ class promoter_enhancer_dataset(Dataset):
             rna_expr = self.expr_df.loc[sample_ensid]['Actual_' + self.cell_type]
             expr_tensor = torch.from_numpy(np.array([rna_expr])).float()
         else:
-            assert False, 'label not exists!'
-        if self.rna_embedding:
+            assert False, 'label does not exist!'
+        if self.rna_method == 'embedding':
             return pe_code_tensor, rnaFeat_tensor, pe_feat_tensor, expr_tensor, sample_ensid, rna_embedding_tensor
         else:
             return pe_code_tensor, rnaFeat_tensor, pe_feat_tensor, expr_tensor, sample_ensid

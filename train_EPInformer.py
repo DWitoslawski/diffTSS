@@ -83,9 +83,10 @@ parser.add_argument('--n_interact_enc',type=int, help='layers of interaction enc
 parser.add_argument('--epochs',type=int, help='training epochs', default=100)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
-parser.add_argument('--rna_encoding', help='input data contains rna-seq, select rna encoder to be included', action='store_true')
-parser.add_argument('--rna_embedding', help='input data contains rna-seq in bins, to be added to rna embedding as another channel', action='store_true')
-parser.add_argument('--rna_transform', choices=['log10', 'tanh', 'sigmoid', None], default=None, help='possible data transformations: log10, tanh, sigmoid')
+paerser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', None], default=None)
+#parser.add_argument('--rna_encoding', help='input data contains rna-seq, select rna encoder to be included', action='store_true')
+#parser.add_argument('--rna_embedding', help='input data contains rna-seq in bins, to be added to rna embedding as another channel', action='store_true')
+parser.add_argument('--rna_transform', help='possible data transformations: log10, tanh, sigmoid', choices=['log10', 'tanh', 'sigmoid', None], default=None)
 
 # example
 # python train_EPInformer.py --cell K562  --model_type EPInformer-PE-Activity --expr_assay CAGE --use_pretrained_encoder --batch_size 16 --fold 1
@@ -114,8 +115,19 @@ elif args.model_type == 'EPInformer-PE-Activity-HiC':
     n_extraFeat = 3
 
 use_pretrained = args.use_pretrained_encoder
-rna_encoding = args.rna_encoding
-rna_embedding = args.rna_embedding
+
+rna_method = args.rna
+
+'''rna_encoding = False
+rna_embedding = False
+rna_one_hot = False
+if args.rna == 'encoding':
+    rna_encoding = True
+elif args.rna == 'embedding':
+    rna_embedding = True
+elif args.rna == 'one-hot':
+    rna_one_hot = True'''
+
 rna_transform = args.rna_transform
 fold_list = args.fold 
 n_encoder = args.n_interact_enc
@@ -134,7 +146,7 @@ saved_model_path = './trained_models/{}/'.format(datetime_str)
 EP_df = pd.read_csv(f'./data/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
 promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
-all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_encoding=rna_encoding, rna_embedding=rna_embedding, rna_transform=rna_transform)
+all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
 ensid_list = [eid.decode() for eid in all_ds.data_h5['ensid'][:]]
 ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
 ensid_df['idx'] = np.arange(len(ensid_list))
@@ -173,11 +185,11 @@ for fi in fold_list:
         pt_model_name = '{}_seq2activityLog2_leaveChrOut_combinedRS_2bins_bs64_H3K27ac_adamW_erisxdl_r0'.format(cell)
         checkpoint = torch.load("./trained_models/pretrained_enhancer_encoder/{}_best_{}_checkpoint.pt".format(fold_i, pt_model_name), map_location=torch.device('cpu'))
         print('Loading pretrained model ...', pt_model_name)
-        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=pretrained_convNet.encoder, rna_encoding=rna_encoding, rna_embedding=rna_embedding, rna_transform=rna_transform, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
+        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=pretrained_convNet.encoder, rna_method=rna_method, rna_transform=rna_transform, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
     else:
-        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, rna_encoding=rna_encoding, rna_embedding=rna_embedding, rna_transform=rna_transform, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
+        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, rna_method=rna_method, rna_transform=rna_transform, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
 
     model = model.to(device)
     model.name = model.name.replace('EPInformerV2', args.model_type) + '.' +  cell + '.' + expr_type
-    utils.train(model, train_ds, valid_dataset=valid_ds, EPOCHS=n_epoch, model_name = model.name, fold_i=fi, batch_size=batch_size, rna_embedding=rna_embedding, device=device, saved_model_path=saved_model_path)
-    test_df = utils.test(model, test_ds, model_name = model.name, saved_model_path=saved_model_path, fold_i=fi, batch_size=batch_size, rna_embedding=rna_embedding, device=device)
+    utils.train(model, train_ds, valid_dataset=valid_ds, EPOCHS=n_epoch, model_name = model.name, fold_i=fi, batch_size=batch_size, rna_method=rna_method, device=device, saved_model_path=saved_model_path)
+    test_df = utils.test(model, test_ds, model_name = model.name, saved_model_path=saved_model_path, fold_i=fi, batch_size=batch_size, rna_method=rna_method, device=device)
