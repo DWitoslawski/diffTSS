@@ -146,7 +146,7 @@ saved_model_path = './trained_models/{}/'.format(datetime_str)
 EP_df = pd.read_csv(f'./data/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
 promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
-all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
+all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
 ensid_list = [eid.decode() for eid in all_ds.data_h5['ensid'][:]]
 ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
 ensid_df['idx'] = np.arange(len(ensid_list))

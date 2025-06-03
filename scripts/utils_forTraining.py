@@ -30,6 +30,7 @@ def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
 
+    
 class Logger():
     """A logging class that can report or save metrics.
 
@@ -92,6 +93,8 @@ class Logger():
         """
         pd.DataFrame(self.data).to_csv(name, sep='\t', index=False)
 
+       
+        
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
     def __init__(self, patience=3, verbose=False, delta=0, path='checkpoint.pt'):
@@ -145,6 +148,9 @@ class EarlyStopping:
         # torch.save(model.state_dict(), self.path)
         self.val_loss_min = val_loss
 
+        
+        
+        
 def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
@@ -238,6 +244,121 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             break
     return lrs
 
+
+
+
+def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+    if not os.path.exists(saved_model_path):
+        os.mkdir(saved_model_path)
+    if valid_dataset is not None:
+        train_ds = training_dataset
+        valid_ds = valid_dataset
+        print("fold", fold_i ,"training data:", len(train_ds), "validated data:", len(valid_ds))
+    else:
+        train_idx, val_idx = train_test_split(list(range(len(training_dataset))), test_size=valid_size, shuffle=True, random_state=66, stratify=stratify)
+        train_ds = Subset(training_dataset, train_idx)
+        valid_ds = Subset(training_dataset, val_idx)
+        print("fold", fold_i ,"training data:", len(train_ds), "validated data:", len(valid_ds), 'total data:', len(training_dataset))
+
+    # fix encoder parameter
+    if fixed_encoder:
+        print('fixed parameter of encoder')
+        for name, value in net.named_parameters():
+            if name.startswith('seq_encoder'):
+                value.requires_grad = False
+
+    trainloader = data_utils.DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=6, pin_memory=True)
+#    trainloader = data_utils.DataLoader(train_ds, batch_size=batch_size, shuffle=False, num_workers=1, pin_memory=True)
+    early_stopping = EarlyStopping(patience=3,
+               verbose=True, path= saved_model_path + "/fold_" + str(fold_i) + "_best_"+model_name+"_checkpoint.pt")
+
+    L_expr = nn.SmoothL1Loss()
+    optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=1e-6)
+    print('Model name:', net.name)
+    lrs = []
+    val_r2_history = []
+    # last_loss = None
+    net.train()
+    for epoch in range(EPOCHS):
+        net.train()
+        print('learning rate:', get_lr(optimizer))
+        print('epoch:', epoch)
+        running_loss = 0
+        loss_e = 0
+        # print('model training mode is:', net.training)
+        for data in tqdm(trainloader):
+            # print(inputs.size())
+            optimizer.zero_grad()
+            input_PE, input_feat, input_dist, y_expr, eid = data
+            #print('eid:',len(eid), eid)
+            #print('y_expr:',y_expr.shape, y_expr)
+            #print('input_PE:', input_PE.shape, input_feat)
+            #print('input_feat:', input_feat.shape, input_feat)
+            #print('input_dist:', input_dist.shape, input_dist)
+            input_PE = input_PE.float().to(device)
+            input_feat = input_feat.float().to(device)
+            # input_dist = input_dist.long().to(device)
+            input_dist = input_dist.float().to(device)
+            # input_PEmask = ~(input_PE.sum(-1).sum(-1) > 0).bool().to(device)
+            y_expr = y_expr.float().to(device)
+            if torch.isnan(y_expr).any().item(): 
+                print("y_expr contains nan:")
+            if torch.isnan(input_feat).any().item(): 
+                print("input_feat contains nan:")
+            if torch.isnan(input_dist).any().item(): 
+                print("input_dist contains nan:")
+                import pdb; pdb.set_trace()
+            # print(input_P.shape, input_E.shape, input_Emask.shape)
+            # print(input_dist.shape, input_dist)
+            # if net_type == 'seq_feat':
+            #     pred_expr, _ = net(input_PE, input_feat)
+            # elif net_type == 'seq':
+            #     pred_expr, _ = net(input_PE)
+            # elif net_type == 'seq_feat_dist':
+            pred_expr, _ = net(input_PE, input_feat, input_dist)
+            if torch.isnan(pred_expr).any().item(): print("pred_expr contains nan:")
+            loss_expr = L_expr(pred_expr, y_expr)
+            if torch.isnan(loss_expr).any().item(): print("loss_expr contains nan:")
+            loss_e += loss_expr.item()
+
+            loss = loss_expr# + loss_intensity + loss_contact
+            # propagate the loss backward
+            loss.backward()
+            for name, param in net.named_parameters():
+              if param.grad is not None:
+                  if torch.isnan(param.grad).any():
+                      print(f"Gradient contains nan in {name}")
+                  if torch.isinf(param.grad).any():
+                      print(f"Gradient contains inf in {name}")
+            # update the gradients
+            optimizer.step()
+            running_loss += loss.item()
+
+        print('[Epoch %d] loss: %.9f' %
+                      (epoch + 1, running_loss/len(trainloader)))
+        print('Training Loss: expression loss:', loss_e/len(trainloader))
+        # log_cols = ['Epoch', 'Training_Loss', 'Validation_Loss', 'Validation_PearsonR_allGene',
+        #             'Validation_R2_allGene', 'Validation_PearsonR_weGene', 'Validation_R2_weGene', 'Saved?']
+
+
+        val_mse_all, val_r2_all, val_pr_all = validate(net, valid_ds, n_enhancers=n_enhancers, device=device)
+        val_r2 = val_r2_all
+        val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
+        print('Validation R square all:', val_r2_all)
+        val_r2_history.append(val_r2_all)
+        early_stopping(-val_r2, net, epoch)
+        if model_logger is not None:
+            label_type = net.name.split('.')[-1]
+            model_logger.add([fold_i, epoch, running_loss/len(trainloader), val_mse_all, val_pr_all, val_r2_all, val_pr_wE, val_r2_wE, early_stopping.counter, label_type])
+            model_logger.save("./EPInformer_log/{}.crossValid.log".format(net.name.replace('.'+label_type, '')))
+        if early_stopping.early_stop:
+            print("Early stopping")
+            break
+    return max(val_r2_history)
+
+
+
+
 def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_size=16, rna_method=None, device = 'cuda'):
     validloader = data_utils.DataLoader(valid_ds, batch_size=batch_size, pin_memory=True, num_workers=0)
     net.eval()
@@ -281,6 +402,9 @@ def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_s
     print('Validation loss expression loss:', loss_e/len(validloader))
     print("valid: mse", mse, "R_sqaure", r_value**2, 'peasonr', peasonr)
     return mse, r_value**2, peasonr
+
+
+
 
 def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_size=64, rna_method=None, device = 'cuda', model_type='best'):
     testloader = data_utils.DataLoader(test_ds, batch_size=batch_size, pin_memory=True, num_workers=0)
@@ -342,6 +466,9 @@ def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_s
     if saved_model_path is not None:
         df.to_csv(saved_model_path + "/fold_" + str(fold_i) + "_"+ model_name + "_predictions.csv")
     return df
+
+
+
 
 class promoter_enhancer_dataset(Dataset):
     def __init__(self, data_folder = '/content/drive/MyDrive/EPInformer/github/EPInformer/data/', expr_type='CAGE', usePromoterSignal=True, first_signal='distance', signal_type='H3K27ac', cell_type='K562', distance_threshold=None, hic_threshold=None, n_enhancers=50, n_extraFeat=1, rna_method=None, rna_transform=None):
@@ -505,8 +632,3 @@ class promoter_enhancer_dataset(Dataset):
             return pe_code_tensor, rnaFeat_tensor, pe_feat_tensor, expr_tensor, sample_ensid, rna_embedding_tensor
         else:
             return pe_code_tensor, rnaFeat_tensor, pe_feat_tensor, expr_tensor, sample_ensid
-
-
-
-
-
