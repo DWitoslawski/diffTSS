@@ -19,7 +19,7 @@ import h5py
 
 
 
-def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_data, hic_data):
+def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_data, hic_data, rna_data):
 
   # Create a new H5 file
   with h5py.File(file_path, 'w') as h5_file:
