@@ -62,7 +62,7 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
         rna_df = rna_df[(rna_df[7] >= target_interval.start) & (rna_df[8] <= target_interval.end)]
         new_index = rna_df[7].values - target_interval.start
         rna_signal = rna_signal.set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)
-        rna_df = np.array(rna_signal)
+        rna_df = np.array(rna_signal).flatten()
         #rna_signal = rna_signal.apply(lambda x: np.log10(x + 1))
         #promoter_code = np.concatenate((promoter_code, rna_signal), axis=1)
     if rna_method == 'embedding':
