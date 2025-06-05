@@ -57,9 +57,9 @@ gene_k562_tss = pd.read_csv('./data/ABC-multiTSS_nominated/K562/Neighborhoods/Ge
 gene_k562_tss['ENSID'] = gene_k562_tss['Ensembl_ID']
 
 
-enhancer_gene_gm12878_100kb = pd.read_csv('./data/GM12878_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
-gene_gm12878_tss = pd.read_csv('./data/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
-gene_gm12878_tss['ENSID'] = gene_gm12878_tss['Ensembl_ID']
+#enhancer_gene_gm12878_100kb = pd.read_csv('./data/GM12878_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+#gene_gm12878_tss = pd.read_csv('./data/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
+#gene_gm12878_tss['ENSID'] = gene_gm12878_tss['Ensembl_ID']
 
 
 enhancer_gene_k562_100kb_includeNoEnhancerGene = enhancer_gene_k562_100kb.merge(gene_k562_tss, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
