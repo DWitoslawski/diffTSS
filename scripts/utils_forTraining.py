@@ -501,7 +501,7 @@ class promoter_enhancer_dataset(Dataset):
             self.promoter_df = promoter_df 
             #self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
             #self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
-            if self.rna_method == 'encoding or self.rna_method == 'one-hot'':
+            if self.rna_method == 'encoding' or self.rna_method == 'one-hot':
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
             elif self.rna_method == 'embedding':
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
