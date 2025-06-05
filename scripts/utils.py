@@ -106,11 +106,10 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
         gene_element_pair.append([gene_name, row['name']])
         e_i += 1
     # print(promoter_signals.shape, enhancers_signal.shape)
-    if rna_method == 'encoding':
+    '''if rna_method == 'encoding':
         enhancers_code = np.concatenate((enhancers_code, np.zeros((max_n_enhancer, max_seq_len, 1))), axis=2)
-        pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0, dtype=np.float32)
-    else:
-        pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0)
+        pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0, dtype=np.float32)'''
+    pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0)
     gene_element_pair = pd.DataFrame(gene_element_pair, columns=['gene', 'element'])
     if rna_method is not None:
         return pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair, rna_df
