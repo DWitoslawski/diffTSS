@@ -488,12 +488,10 @@ class promoter_enhancer_dataset(Dataset):
             promoter_df = pd.read_csv(self.data_folder + '/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t', index_col='Ensembl_ID')
             promoter_df['PromoterActivity'] = np.sqrt(promoter_df['H3K27ac.RPM.TSS1Kb']*promoter_df['DHS.RPM.TSS1Kb'])
             #self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
-            if self.rna_method == 'encoding':
+            if self.rna_method == 'encoding' or self.rna_method == 'one-hot':
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
             elif self.rna_method == 'embedding':
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
-            elif self.rna_method == 'one-hot':
-                self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.rna_one_hot.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/K562_enhancer_promoter_encoding.hg38.h5', 'r')
             self.promoter_df = promoter_df
@@ -503,12 +501,10 @@ class promoter_enhancer_dataset(Dataset):
             self.promoter_df = promoter_df 
             #self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
             #self.data_h5 = h5py.File('/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
-            if self.rna_method == 'encoding':
+            if self.rna_method == 'encoding or self.rna_method == 'one-hot'':
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5', 'r')
             elif self.rna_method == 'embedding':
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
-            elif self.rna_method == 'one-hot':
-                self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_one_hot.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
         self.expr_df = pd.read_csv(self.data_folder + 'RNA_CAGE.txt', sep='\t', index_col='ENSID')
@@ -543,6 +539,7 @@ class promoter_enhancer_dataset(Dataset):
         enhancer_distance = self.data_h5['distance'][idx,1:]
         enhancer_intensity = self.data_h5['activity'][idx,1:]
         enhancer_contact = self.data_h5['hic'][idx,1:]
+        
         if self.rna_method == 'embedding':
             rna_embedding = self.data_h5['rna'][idx]
 

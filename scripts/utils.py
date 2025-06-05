@@ -62,8 +62,9 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
         rna_df = rna_df[(rna_df[7] >= target_interval.start) & (rna_df[8] <= target_interval.end)]
         new_index = rna_df[7].values - target_interval.start
         rna_signal = rna_signal.set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)
+        rna_df = np.array(rna_signal)
         #rna_signal = rna_signal.apply(lambda x: np.log10(x + 1))
-        promoter_code = np.concatenate((promoter_code, rna_signal), axis=1)
+        #promoter_code = np.concatenate((promoter_code, rna_signal), axis=1)
     if rna_method == 'embedding':
         rna_df = np.concatenate([rna_df.reshape(1, 125), np.zeros([60, 125])])
     enhancers_code = np.zeros((max_n_enhancer, max_seq_len, 4))
@@ -111,7 +112,7 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
     else:
         pe_code = np.concatenate([promoter_code[np.newaxis,:], enhancers_code], axis=0)
     gene_element_pair = pd.DataFrame(gene_element_pair, columns=['gene', 'element'])
-    if rna_method == 'embedding':
+    if rna_method is not None:
         return pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair, rna_df
     return pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair
 
@@ -186,10 +187,12 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
     rna_df_list = []
     for gene in tqdm(gene_list):
         gene_df = gene_enhancer_table[gene_enhancer_table['ENSID'] == gene]
-        if rna_method == 'encoding':
-            gene_rna_df = rna_df[rna_df[3] == gene]
-        if rna_method == 'embedding':
-            gene_rna_df = rna_df[gene_list.index(gene)]
+        if rna_method is not None:
+            if rna_method == 'encoding' or rna_method == 'one-hot':
+                gene_rna_df = rna_df[rna_df[3] == gene]
+            if rna_method == 'embedding':
+                gene_rna_df = rna_df[gene_list.index(gene)]
+                
             PE_code, activity_list, distance_list, contact_list, gene_name, PE_links, gene_rna_df = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_method=rna_method, rna_df=gene_rna_df)
             rna_df_list.append(gene_rna_df)
 
@@ -230,7 +233,7 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
     PE_contact_list = np.array(PE_contact_list)
     mRNA_promoter_list = np.array(mRNA_promoter_list)
     #return PE_code_list, PE_feat_list, mRNA_promoter_list, PE_links_df
-    if rna_method == 'embedding':
+    if rna_method is not None:
         rna_df_list = np.array(rna_df_list)
         return gene_list, PE_code_list, PE_distance_list, PE_activity_list, PE_contact_list, rna_df_list
     return gene_list, PE_code_list, PE_distance_list, PE_activity_list, PE_contact_list
