@@ -72,7 +72,7 @@ rna_df_K562 = pd.read_csv('./data/RNASeq_bw/K562.minus.ENCFF528VFJ.coverage.txt'
 rna_df_GM12878 = pd.read_csv('./data/RNASeq_bw/GM12878.minus.ENCFF074SXQ.coverage.txt', header=None, sep='\t')
 
 
-ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data = prepare_hd5_input(enhancer_gene_k562_100kb_includeNoEnhancerGene, gene_k562_tss, gene_list, 'K562', num_features=3, rna_encoding=True, rna_df=rna_df_K562)
+ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data = prepare_hd5_input(enhancer_gene_k562_100kb_includeNoEnhancerGene, gene_k562_tss, gene_list, 'K562', num_features=3, rna_method='encoding', rna_df=rna_df_K562)
 
 file_path = '/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5'
 create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data)
@@ -81,7 +81,7 @@ create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic
 #del ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data
 
 
-#ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data = prepare_hd5_input(enhancer_gene_gm12878_100kb_includeNoEnhancerGene, gene_gm12878_tss, gene_list, 'GM12878', num_features=3, rna_encoding=True, rna_df=rna_df_GM12878)
+#ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data = prepare_hd5_input(enhancer_gene_gm12878_100kb_includeNoEnhancerGene, gene_gm12878_tss, gene_list, 'GM12878', num_features=3, rna_method='encoding', rna_df=rna_df_GM12878)
 
 #file_path = '/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5'
 #create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data)
