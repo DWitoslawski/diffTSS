@@ -57,7 +57,7 @@ def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.f
     target_interval = kipoiseq.Interval(chrom, int(gene_tss-max_seq_len/2), int(gene_tss+max_seq_len/2))
     promoter_seq = fasta_extractor.extract(target_interval)
     promoter_code = one_hot_encode(promoter_seq)
-    if rna_method == 'encoding':
+    if rna_method == 'encoding' or rna_method == 'one-hot':
         rna_signal = rna_df[[9]]
         rna_df = rna_df[(rna_df[7] >= target_interval.start) & (rna_df[8] <= target_interval.end)]
         new_index = rna_df[7].values - target_interval.start

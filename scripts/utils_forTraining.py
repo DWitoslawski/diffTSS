@@ -157,10 +157,12 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
     if valid_dataset is not None:
         train_ds = training_dataset
         valid_ds = valid_dataset
+        print("fold", fold_i ,"training data:", len(train_ds), "validated data:", len(valid_ds), 'total data:', len(train_ds) + len(valid_ds))
     else:
         train_idx, val_idx = train_test_split(list(range(len(training_dataset))), test_size=valid_size, shuffle=True, random_state=66, stratify=stratify)
         train_ds = Subset(training_dataset, train_idx)
         valid_ds = Subset(training_dataset, val_idx)
+        print("fold", fold_i ,"training data:", len(train_ds), "validated data:", len(valid_ds), 'total data:', len(training_dataset))
 
     # fix encoder parameter
     if fixed_encoder:
@@ -169,7 +171,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             if name.startswith('seq_encoder'):
                 value.requires_grad = False
 
-    print("fold", fold_i ,"training data:", len(train_ds), "validated data:", len(valid_ds), 'total data:', len(training_dataset))
+    
     trainloader = data_utils.DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=5, pin_memory=True)
     early_stopping = EarlyStopping(patience=3,
                verbose=True, path= saved_model_path + "/fold_" + str(fold_i) + "_best_"+model_name+"_checkpoint.pt")
@@ -507,7 +509,7 @@ class promoter_enhancer_dataset(Dataset):
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5', 'r')
             else:
                 self.data_h5 = h5py.File(self.data_folder + '/GM12878_enhancer_promoter_encoding.hg38.h5', 'r')
-        self.expr_df = pd.read_csv(self.data_folder + 'RNA_CAGE.txt', sep='\t', index_col='ENSID')
+        self.expr_df = pd.read_csv(self.data_folder + '/RNA_CAGE.txt', sep='\t', index_col='ENSID')
         self.check_expr_df()
 
     def check_expr_df(self):
@@ -539,21 +541,37 @@ class promoter_enhancer_dataset(Dataset):
         enhancer_distance = self.data_h5['distance'][idx,1:]
         enhancer_intensity = self.data_h5['activity'][idx,1:]
         enhancer_contact = self.data_h5['hic'][idx,1:]
-        
-        if self.rna_method == 'embedding':
-            rna_embedding = self.data_h5['rna'][idx]
 
         if self.signal_type == 'H3K27ac':
             promoter_activity = self.promoter_df.loc[sample_ensid]['PromoterActivity']
         elif self.signal_type == 'DNase':
             promoter_activity = self.promoter_df.loc[sample_ensid]['normalized_dhs']
             # enhancer_intensity = dhs_intensity
-        
-        if self.rna_transform is not None:
+            
+        # get rna signal
+        if self.rna_method is not None:
             if self.rna_method == 'encoding':
-                seq_code[:, :, 4] = self.transform(seq_code[:, :, 4])
+                rna_signal = self.data_h5['rna'][idx]
+                rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
+            if self.rna_method == 'one-hot':
+                rna_signal = self.data_h5['rna'][idx]
+                rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
             if self.rna_method == 'embedding':
-                rna_embedding = self.transform(rna_embedding)
+                rna_signal = self.data_h5['rna'][idx]
+        
+        # apply data transformation to rna signal NEEDS TO BE FIXED
+        if self.rna_transform is not None and self.rna_method is not None:
+            rna_signal = self.transform(rna_signal)
+            #if self.rna_method == 'encoding' or self.rna_method == 'one-hot':
+            #    seq_code[:, :, 4] = self.transform(seq_code[:, :, 4])
+            #if self.rna_method == 'embedding':
+            #    rna_signal = self.transform(rna_signal)
+        
+        # incorporate rna signal into seq_code if needed
+        if self.rna_method == 'encoding':
+            seq_code = np.concatenate([seq_code, rna_signal], axis=2)
+        if self.rna_method == 'one-hot':
+            seq_code = seq_code * rna_signal
         
         promoter_code = seq_code[:1]
         enhancers_code = seq_code[1:]
@@ -614,9 +632,8 @@ class promoter_enhancer_dataset(Dataset):
         enhancers_code_tensor = torch.from_numpy(enhancers_code[:self.n_enhancers, :]).float()
         pe_code_tensor = torch.concat([promoter_code_tensor, enhancers_code_tensor])
         rnaFeat_tensor = torch.from_numpy(rnaFeat).float()
-        rna_embedding_tensor = torch.from_numpy(rna_embedding).float()
-        # print(pe_distance_tensor)
-
+        if self.rna_method is not None:
+            rna_signal_tensor = torch.from_numpy(rna_signal).float()
         if self.expr_type == 'CAGE':
             cage_expr = np.log10(self.expr_df.loc[sample_ensid][self.cell_type + '_CAGE_128*3_sum']+1)
             expr_tensor = torch.from_numpy(np.array([cage_expr])).float()
@@ -626,6 +643,6 @@ class promoter_enhancer_dataset(Dataset):
         else:
             assert False, 'label does not exist!'
         if self.rna_method == 'embedding':
-            return pe_code_tensor, rnaFeat_tensor, pe_feat_tensor, expr_tensor, sample_ensid, rna_embedding_tensor
+            return pe_code_tensor, rnaFeat_tensor, pe_feat_tensor, expr_tensor, sample_ensid, rna_signal_tensor
         else:
             return pe_code_tensor, rnaFeat_tensor, pe_feat_tensor, expr_tensor, sample_ensid

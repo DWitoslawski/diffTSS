@@ -83,7 +83,7 @@ parser.add_argument('--n_interact_enc',type=int, help='layers of interaction enc
 parser.add_argument('--epochs',type=int, help='training epochs', default=100)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
-paerser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', None], default=None)
+parser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', None], default=None)
 #parser.add_argument('--rna_encoding', help='input data contains rna-seq, select rna encoder to be included', action='store_true')
 #parser.add_argument('--rna_embedding', help='input data contains rna-seq in bins, to be added to rna embedding as another channel', action='store_true')
 parser.add_argument('--rna_transform', help='possible data transformations: log10, tanh, sigmoid', choices=['log10', 'tanh', 'sigmoid', None], default=None)
@@ -97,7 +97,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:2")
+    device = torch.device("cuda:1")
     #device = 'cuda'
 else:
     device = 'cpu'
@@ -117,17 +117,6 @@ elif args.model_type == 'EPInformer-PE-Activity-HiC':
 use_pretrained = args.use_pretrained_encoder
 
 rna_method = args.rna
-
-'''rna_encoding = False
-rna_embedding = False
-rna_one_hot = False
-if args.rna == 'encoding':
-    rna_encoding = True
-elif args.rna == 'embedding':
-    rna_embedding = True
-elif args.rna == 'one-hot':
-    rna_one_hot = True'''
-
 rna_transform = args.rna_transform
 fold_list = args.fold 
 n_encoder = args.n_interact_enc
@@ -143,7 +132,7 @@ datetime_str = today.strftime("%Y-%m-%d-%H")
 #split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
 saved_model_path = './trained_models/{}/'.format(datetime_str)
 
-EP_df = pd.read_csv(f'./data/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+EP_df = pd.read_csv(f'/home/witoslaw/data/diffTSS/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
 promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
 all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
