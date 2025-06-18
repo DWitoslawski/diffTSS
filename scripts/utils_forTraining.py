@@ -249,7 +249,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
 
 
 
-def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method = None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -291,7 +291,10 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
         for data in tqdm(trainloader):
             # print(inputs.size())
             optimizer.zero_grad()
-            input_PE, input_feat, input_dist, y_expr, eid = data
+            if rna_method == 'embedding':
+                input_PE, input_feat, input_dist, y_expr, eid, rna_emb = data
+            else:
+                input_PE, input_feat, input_dist, y_expr, eid = data
             #print('eid:',len(eid), eid)
             #print('y_expr:',y_expr.shape, y_expr)
             #print('input_PE:', input_PE.shape, input_feat)
@@ -317,7 +320,11 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
             # elif net_type == 'seq':
             #     pred_expr, _ = net(input_PE)
             # elif net_type == 'seq_feat_dist':
-            pred_expr, _ = net(input_PE, input_feat, input_dist)
+            if rna_method == 'embedding':
+                rna_emb = rna_emb.float().to(device)
+                pred_expr, _ = net(input_PE, input_feat, input_dist, rna_emb)
+            else:
+                pred_expr, _ = net(input_PE, input_feat, input_dist)
             if torch.isnan(pred_expr).any().item(): print("pred_expr contains nan:")
             loss_expr = L_expr(pred_expr, y_expr)
             if torch.isnan(loss_expr).any().item(): print("loss_expr contains nan:")
@@ -343,7 +350,7 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
         #             'Validation_R2_allGene', 'Validation_PearsonR_weGene', 'Validation_R2_weGene', 'Saved?']
 
 
-        val_mse_all, val_r2_all, val_pr_all = validate(net, valid_ds, n_enhancers=n_enhancers, device=device)
+        val_mse_all, val_r2_all, val_pr_all = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
         val_r2 = val_r2_all
         val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
         print('Validation R square all:', val_r2_all)

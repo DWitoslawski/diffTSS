@@ -84,8 +84,6 @@ parser.add_argument('--epochs',type=int, help='training epochs', default=100)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
 parser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', None], default=None)
-#parser.add_argument('--rna_encoding', help='input data contains rna-seq, select rna encoder to be included', action='store_true')
-#parser.add_argument('--rna_embedding', help='input data contains rna-seq in bins, to be added to rna embedding as another channel', action='store_true')
 parser.add_argument('--rna_transform', help='possible data transformations: log10, tanh, sigmoid', choices=['log10', 'tanh', 'sigmoid', None], default=None)
 
 # example
@@ -118,6 +116,7 @@ use_pretrained = args.use_pretrained_encoder
 
 rna_method = args.rna
 rna_transform = args.rna_transform
+
 fold_list = args.fold 
 n_encoder = args.n_interact_enc
 batch_size = args.batch_size 

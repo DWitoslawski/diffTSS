@@ -150,7 +150,7 @@ def print_splits(df, folds, n_folds):
 class Objective:
     def __init__(self, all_ds, splits, ensid_df, expr_df, device, cell, expr_type,
                  use_pretrained=False, n_enhancers=60, n_rnaFeat=9, n_extraFeat=2, batch_size=16, epochs = 10,
-                 saved_model_path="./trained_models/"):
+                 saved_model_path="./trained_models/", rna_method='encoding', rna_transform='log10'):
         self.all_ds = all_ds
         self.splits = splits
         self.ensid_df = ensid_df
@@ -159,8 +159,6 @@ class Objective:
         self.cell = cell
         self.expr_type = expr_type
         self.use_pretrained = use_pretrained
-        self.n_enhancers = n_enhancers
-        self.n_rnaFeat = n_rnaFeat
         self.n_extraFeat = n_extraFeat
         self.batch_size = batch_size
         self.n_epoch = epochs
@@ -196,33 +194,23 @@ class Objective:
             model = EPInformer_v2(
                 n_encoder=trial_params['n_encoder'],
                 pre_trained_encoder=pretrained_convNet.encoder,
-                n_enhancer=self.n_enhancers,
-                out_dim=trial_params['out_dim'],
                 #out_dim=64,
                 head=trial_params['head'],
-                useBN=trial_params['useBN'],
-                useLN=trial_params['useLN'],
-                usePromConv=trial_params['usePromConv'],
-                n_rnaFeat=self.n_rnaFeat,
                 n_extraFeat=self.n_extraFeat,
-                prom_conv_dim=trial_params['prom_conv_dim'],
-                device=self.device
+                device=self.device,
+                rna_method=trial_params['rna_method'],
+                rna_transform=trial_params['rna_transform']
             )
         else:
             model = EPInformer_v2(
                 n_encoder=trial_params['n_encoder'],
                 pre_trained_encoder=None,
-                n_enhancer=self.n_enhancers,
-                out_dim=trial_params['out_dim'],
                 #out_dim=64,
                 head=trial_params['head'],
-                useBN=trial_params['useBN'],
-                useLN=trial_params['useLN'],
-                usePromConv=trial_params['usePromConv'],
-                n_rnaFeat=self.n_rnaFeat,
                 n_extraFeat=self.n_extraFeat,
-                prom_conv_dim=trial_params['prom_conv_dim'],
-                device=self.device
+                device=self.device,
+                rna_method=trial_params['rna_method'],
+                rna_transform=trial_params['rna_transform']
             )
 
             #model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, n_enhancer=n_enhancers, out_dim=64, n_rnaFeat=n_rnaFeat, n_extraFeat=n_extraFeat, device=device).to(device)
@@ -236,8 +224,7 @@ class Objective:
             valid_dataset=valid_ds,
             fold_i=fold_i,
             saved_model_path=self.saved_model_path,
-            #learning_rate=trial_params['learning_rate'],
-            learning_rate=1e-4,
+            learning_rate=trial_params['learning_rate'],
             model_name=model.name,
             #batch_size=trial_params['batch_size'],
             batch_size=self.batch_size,
@@ -248,15 +235,15 @@ class Objective:
 
     def __call__(self, trial):
         trial_params = {
-            #'learning_rate': trial.suggest_loguniform("learning_rate", 1e-5, 1e-3),
             #'batch_size': trial.suggest_categorical("batch_size", [16, 32, 64]),
-            'n_encoder': trial.suggest_int("n_encoder", 2, 3),
-            'out_dim': trial.suggest_categorical("out_dim", [16, 32, 64]),
-            'prom_conv_dim': trial.suggest_categorical("prom_conv_dim", [16, 32, 64]),
-            'head': trial.suggest_categorical("head", [2, 4]),
-            'useBN': trial.suggest_categorical('useBN', [True, False]), 
-            'useLN': trial.suggest_categorical('useLN', [True, False]),
-            'usePromConv': trial.suggest_categorical('usePromConv', [True, False]),
+            #'useBN': trial.suggest_categorical('useBN', [True, False]), 
+            #'useLN': trial.suggest_categorical('useLN', [True, False]),
+            #'out_dim': trial.suggest_categorical("out_dim", [16, 32, 64]),
+            'learning_rate': trial.suggest_loguniform("learning_rate", 1e-5, 1e-3),
+            'n_encoder': trial.suggest_int("n_encoder", 3, 4),
+            'head': trial.suggest_int("head", 4, 6),
+            'rna_method': trial.suggest_categorical('rna_method', ['encoding', 'embedding', 'one-hot'])
+            'rna_transform': trial.suggest_categorical('rna_transform', ['log10', 'sigmoid', 'tanh'])
             #'epochs': 10
         }
 
@@ -275,7 +262,7 @@ def list_of_strings(arg):
     return arg.split(',')
 parser.add_argument('--cell', type=str, help='cell line (support K562 and GM12878)', choices=['K562', 'GM12878'])  
 parser.add_argument("--fold", type=list_of_strings, help="test fold", default='all')
-parser.add_argument("--model_type", type=str, help='EPInformer type', default='EPInformer-PE-Activity', choices=['EPInformer-PE', 'EPInformer-PE-Activity', 'EPInformer-PE-Activity-HiC'])  
+parser.add_argument("--model_type", type=str, help='EPInformer type', default='EPInformer-PE-Activity-HiC', choices=['EPInformer-PE', 'EPInformer-PE-Activity', 'EPInformer-PE-Activity-HiC'])  
 parser.add_argument('--distance_threshold', type=int, help='max distance to TSS', default=100_000) 
 parser.add_argument('--hic_threshold', type=int, help='hic loop thresold', default=-1) 
 parser.add_argument('--expr_assay', type=str, help='expression_assay', choices=['CAGE', 'RNA'])
@@ -284,7 +271,8 @@ parser.add_argument('--n_interact_enc',type=int, help='layers of interaction enc
 parser.add_argument('--epochs',type=int, help='training epochs', default=10)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
-parser.add_argument('--paired', help='paired cell types', action='store_true')
+parser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', None], default=None)
+parser.add_argument('--rna_transform', help='possible data transformations: log10, tanh, sigmoid', choices=['log10', 'tanh', 'sigmoid', None], default=None)
 parser.add_argument('--host', help='optuna storage network host', default='localhost')
 parser.add_argument('--port', help='optuna storage network port', default=0)
 
@@ -314,12 +302,15 @@ elif args.model_type == 'EPInformer-PE-Activity-HiC':
     n_extraFeat = 3
 
 use_pretrained = args.use_pretrained_encoder
+
+rna_method = args.rna
+rna_transform = args.rna_transform
+
 fold_list = args.fold 
 n_encoder = args.n_interact_enc
 batch_size = args.batch_size 
 expr_type = args.expr_assay
 n_enhancers = 60
-paired = args.paired
 postgres_host = args.host
 postgres_port = args.port
 pg_pass_file = '/home/'+os.environ["USER"]+'/postgres/config/postgres-password'
@@ -332,30 +323,18 @@ datetime_str = today.strftime("%Y-%m-%d-%H")
 #split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
 saved_model_path = './trained_models/{}/'.format(datetime_str)
 
-if not paired:
-    EP_df = pd.read_csv('./data/' + 'K562_enhancer_gene_links_100kb.merged.hg38.tsv', sep='\t')
-    all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold)
-    promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
-    promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
-    n_rnaFeat = 9
-else: 
-    EP_df = pd.read_csv('./data/' + 'cellpairs_enhancer_gene_links_100kb.merged.hg38.tsv', sep='\t')
-    cells = ['K562','GM12878']
-    cell1 = cells[0]
-    cell2 = cells[1]
-    all_ds = utils.promoter_enhancer_cellpairs_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cells, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold)
-    promoter_df = EP_df.groupby(cell1+'.TargetGeneEnsembl_ID', as_index = False)['chr'].first()
-    promoter_df.rename(columns={cell1+'.TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
-    n_rnaFeat = 11
-n_extraFeat = all_ds.n_extraFeat
+EP_df = pd.read_csv('./data/' + 'K562_enhancer_gene_links_100kb.merged.hg38.tsv', sep='\t')
+promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
+promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
+all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold)
 ensid_list = all_ds.ensid_data
 ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
 ensid_df['idx'] = np.arange(len(ensid_list))
 ensid_df = ensid_df.set_index('ensid')
 
-#splits = generate_splits(promoter_df,'chr')
+splits = generate_splits(promoter_df,'chr')
 #splits = generate_random_splits(promoter_df,'chr')
-splits = load_pretrained_splits(promoter_df,'chr', './data/cvtable.txt')
+#splits = load_pretrained_splits(promoter_df,'chr', './data/cvtable.txt')
 print_splits(promoter_df, splits, len(splits))
 
 
@@ -366,19 +345,17 @@ objective = Objective(
     ensid_df=ensid_df,
     expr_df=all_ds.expr_df,  # or wherever the expression df is
     device=device,
-    cell='K562',
-    expr_type='CAGE',
+    cell=cell,
+    expr_type=expr_type,
     use_pretrained=use_pretrained,
-    n_enhancers=60,
-    n_rnaFeat=n_rnaFeat,
     n_extraFeat=n_extraFeat,
     batch_size = batch_size,
     epochs = n_epoch,
-    saved_model_path="./trained_models/optuna/"
+    saved_model_path="./trained_models/optuna/"    
 )
 
 # Create an Optuna study
-study_name = "pairdiff0"
+study_name = "diffTSS0"
 with open(pg_pass_file, 'r') as f:
     db_password = f.read().strip()
 storage = optuna.storages.RDBStorage(url="postgresql://mhan:"+db_password+"@"+postgres_host+":"+str(postgres_port)+"/example")
