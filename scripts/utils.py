@@ -190,7 +190,7 @@ def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, n
             if rna_method == 'encoding' or rna_method == 'one-hot':
                 gene_rna_df = rna_df[rna_df[3] == gene]
             if rna_method == 'embedding':
-                gene_rna_df = rna_df[gene_list.index(gene)]
+                gene_rna_df = rna_df[rna_df[0] == gene]
                 
             PE_code, activity_list, distance_list, contact_list, gene_name, PE_links, gene_rna_df = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_method=rna_method, rna_df=gene_rna_df)
             rna_df_list.append(gene_rna_df)

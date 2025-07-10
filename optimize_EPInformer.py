@@ -148,13 +148,8 @@ def print_splits(df, folds, n_folds):
 
 
 class Objective:
-    def __init__(self, all_ds, splits, ensid_df, expr_df, device, cell, expr_type,
-                 use_pretrained=False, n_enhancers=60, n_rnaFeat=9, n_extraFeat=2, batch_size=16, epochs = 10,
-                 saved_model_path="./trained_models/", rna_method='encoding', rna_transform='log10'):
-        self.all_ds = all_ds
-        self.splits = splits
-        self.ensid_df = ensid_df
-        self.expr_df = expr_df
+    def __init__(self, device, cell, expr_type, use_pretrained=False, n_enhancers=60, n_rnaFeat=9, 
+                 n_extraFeat=2, batch_size=16, epochs = 10, saved_model_path="./trained_models/"):
         self.device = device
         self.cell = cell
         self.expr_type = expr_type
@@ -163,6 +158,11 @@ class Objective:
         self.batch_size = batch_size
         self.n_epoch = epochs
         self.saved_model_path = saved_model_path
+        
+        #today = datetime.now()   # Get date
+        #datetime_str = today.strftime("%Y-%m-%d-%H")
+        #split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
+        #saved_model_path = './trained_models/{}/'.format(datetime_str)
 
 
     def get_fold_datasets(self, fi):
@@ -216,7 +216,7 @@ class Objective:
             #model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, n_enhancer=n_enhancers, out_dim=64, n_rnaFeat=n_rnaFeat, n_extraFeat=n_extraFeat, device=device).to(device)
 
         model = model.to(self.device)
-        model.name = model.name.replace('EPInformerV2', args.model_type) + '.' +  cell + '.' + expr_type
+        #model.name = model.name.replace('EPInformerV2', args.model_type) + '.' +  cell + '.' + expr_type
         #minus_val_r2 = utils.train(model, train_ds, valid_dataset=valid_ds, EPOCHS=n_epoch, model_name = model.name, fold_i=fi, batch_size=batch_size, device=device, saved_model_path=saved_model_path)
         val_r2 = utils.train_foropt(
             net=model,
@@ -229,7 +229,8 @@ class Objective:
             #batch_size=trial_params['batch_size'],
             batch_size=self.batch_size,
             device=self.device,
-            EPOCHS=self.n_epoch
+            EPOCHS=self.n_epoch,
+            rna_method=trial_params['rna_method']
         )
         return val_r2
 
@@ -239,13 +240,41 @@ class Objective:
             #'useBN': trial.suggest_categorical('useBN', [True, False]), 
             #'useLN': trial.suggest_categorical('useLN', [True, False]),
             #'out_dim': trial.suggest_categorical("out_dim", [16, 32, 64]),
-            'learning_rate': trial.suggest_loguniform("learning_rate", 1e-5, 1e-3),
+            'learning_rate': trial.suggest_float("learning_rate", 1e-5, 1e-3),
             'n_encoder': trial.suggest_int("n_encoder", 3, 4),
-            'head': trial.suggest_int("head", 4, 6),
-            'rna_method': trial.suggest_categorical('rna_method', ['encoding', 'embedding', 'one-hot'])
+            'head': trial.suggest_categorical("head", [4, 8]),
+            'rna_method': trial.suggest_categorical('rna_method', ['encoding', 'embedding', 'one-hot']),
             'rna_transform': trial.suggest_categorical('rna_transform', ['log10', 'sigmoid', 'tanh'])
             #'epochs': 10
         }
+        
+        rna_method = trial_params['rna_method']
+        rna_transform = trial_params['rna_transform']
+        
+        #print(f"RNA Method: {rna_method}, Transform: {rna_transform}")
+
+        EP_df = pd.read_csv(f'/home/witoslaw/data/diffTSS/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+        promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
+        promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
+        all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat,
+                                                 usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold,
+                                                 rna_method=rna_method, rna_transform=rna_transform)
+        #print(f"all_ds[0]:\n{all_ds[0]}")
+        
+        ensid_list = [eid.decode() for eid in all_ds.data_h5['ensid'][:]]
+        ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
+        ensid_df['idx'] = np.arange(len(ensid_list))
+        ensid_df = ensid_df.set_index('ensid')
+
+        splits = generate_splits(promoter_df,'chr')
+        #splits = generate_random_splits(promoter_df,'chr')
+        #splits = load_pretrained_splits(promoter_df,'chr', './data/cvtable.txt')
+        print_splits(promoter_df, splits, len(splits))
+        
+        self.all_ds = all_ds
+        self.splits = splits
+        self.ensid_df = ensid_df
+        self.expr_df = self.all_ds.expr_df
 
         #fold_i = np.random.randint(1, len(self.splits) + 1)
         fold_i = 1
@@ -317,33 +346,9 @@ pg_pass_file = '/home/'+os.environ["USER"]+'/postgres/config/postgres-password'
 
 #################
 
-today = datetime.now()   # Get date
-
-datetime_str = today.strftime("%Y-%m-%d-%H")
-#split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
-saved_model_path = './trained_models/{}/'.format(datetime_str)
-
-EP_df = pd.read_csv('./data/' + 'K562_enhancer_gene_links_100kb.merged.hg38.tsv', sep='\t')
-promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
-promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
-all_ds = utils.promoter_enhancer_dataset(data_folder= './data/', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold)
-ensid_list = all_ds.ensid_data
-ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
-ensid_df['idx'] = np.arange(len(ensid_list))
-ensid_df = ensid_df.set_index('ensid')
-
-splits = generate_splits(promoter_df,'chr')
-#splits = generate_random_splits(promoter_df,'chr')
-#splits = load_pretrained_splits(promoter_df,'chr', './data/cvtable.txt')
-print_splits(promoter_df, splits, len(splits))
-
 
 
 objective = Objective(
-    all_ds=all_ds,
-    splits=splits,
-    ensid_df=ensid_df,
-    expr_df=all_ds.expr_df,  # or wherever the expression df is
     device=device,
     cell=cell,
     expr_type=expr_type,
@@ -351,18 +356,19 @@ objective = Objective(
     n_extraFeat=n_extraFeat,
     batch_size = batch_size,
     epochs = n_epoch,
-    saved_model_path="./trained_models/optuna/"    
+    saved_model_path="./trained_models/optuna/"
 )
 
 # Create an Optuna study
-study_name = "diffTSS0"
+study_name = "diffTSS"
 with open(pg_pass_file, 'r') as f:
     db_password = f.read().strip()
-storage = optuna.storages.RDBStorage(url="postgresql://mhan:"+db_password+"@"+postgres_host+":"+str(postgres_port)+"/example")
-study = optuna.load_study(study_name=study_name, storage=storage)
+storage = optuna.storages.RDBStorage(url="postgresql://witoslaw:"+db_password+"@"+postgres_host+":"+str(postgres_port)+"/diffTSS")
+study = optuna.create_study(study_name=study_name, direction="maximize", storage=storage, load_if_exists=True)
 
 
 # Start optimization
+#study = optuna.create_study()
 study.optimize(objective, n_trials=50)
 
 

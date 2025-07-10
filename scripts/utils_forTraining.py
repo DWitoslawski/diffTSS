@@ -151,7 +151,7 @@ class EarlyStopping:
         
         
         
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=3e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -249,7 +249,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
 
 
 
-def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method = None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=3e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method = None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -294,6 +294,7 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
             if rna_method == 'embedding':
                 input_PE, input_feat, input_dist, y_expr, eid, rna_emb = data
             else:
+                #print(data)
                 input_PE, input_feat, input_dist, y_expr, eid = data
             #print('eid:',len(eid), eid)
             #print('y_expr:',y_expr.shape, y_expr)
@@ -334,11 +335,13 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
             # propagate the loss backward
             loss.backward()
             for name, param in net.named_parameters():
-              if param.grad is not None:
-                  if torch.isnan(param.grad).any():
-                      print(f"Gradient contains nan in {name}")
-                  if torch.isinf(param.grad).any():
-                      print(f"Gradient contains inf in {name}")
+                if param.grad is not None:
+                    if torch.isnan(param.grad).any():
+                        print(f"Gradient contains nan in {name}\nStopping...")
+                        return 0
+                    if torch.isinf(param.grad).any():
+                        print(f"Gradient contains inf in {name}\nStopping...")
+                        return 0
             # update the gradients
             optimizer.step()
             running_loss += loss.item()
@@ -557,13 +560,13 @@ class promoter_enhancer_dataset(Dataset):
             
         # get rna signal
         if self.rna_method is not None:
-            if self.rna_method == 'encoding':
+            if self.rna_method == 'encoding' or self.rna_method == 'one-hot':
                 rna_signal = self.data_h5['rna'][idx]
                 rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
-            if self.rna_method == 'one-hot':
-                rna_signal = self.data_h5['rna'][idx]
-                rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
-            if self.rna_method == 'embedding':
+            #if self.rna_method == 'one-hot':
+            #    rna_signal = self.data_h5['rna'][idx]
+            #    rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
+            elif self.rna_method == 'embedding':
                 rna_signal = self.data_h5['rna'][idx]
         
         # apply data transformation to rna signal NEEDS TO BE FIXED

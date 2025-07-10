@@ -79,7 +79,7 @@ parser.add_argument('--distance_threshold', type=int, help='max distance to TSS'
 parser.add_argument('--hic_threshold', type=int, help='hic loop thresold', default=-1) 
 parser.add_argument('--expr_assay', type=str, help='expression_assay', choices=['CAGE', 'RNA'])
 parser.add_argument('--batch_size', type=int, help='batch size', default=16)
-parser.add_argument('--n_interact_enc',type=int, help='layers of interaction encoder', default=3)
+parser.add_argument('--n_interact_enc',type=int, help='layers of interaction encoder', default=4)
 parser.add_argument('--epochs',type=int, help='training epochs', default=100)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
@@ -95,7 +95,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:0")
     #device = 'cuda'
 else:
     device = 'cpu'

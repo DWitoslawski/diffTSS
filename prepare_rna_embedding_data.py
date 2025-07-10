@@ -65,32 +65,18 @@ enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.
 gene_list = list(gene_gm12878_tss['ENSID'])
 
 
-rna_df_K562 = np.loadtxt('./data/RNASeq_bw/K562.minus.ENCFF528VFJ_values_TSS.tab', delimiter='\t', skiprows=3)
-rna_df_GM12878 = np.loadtxt('./data/RNASeq_bw/GM12878.minus.ENCFF078ATR_values_TSS.tab', delimiter='\t', skiprows=3)
+rna_df_K562 = np.loadtxt('./data/RNASeq_bw/gene_added_K562.minus.ENCFF528VFJ_values_TSS.tab', delimiter='\t', skiprows=3)
+rna_df_GM12878 = np.loadtxt('./data/RNASeq_bw/gene_addedGM12878.minus.ENCFF078ATR_values_TSS.tab', delimiter='\t', skiprows=3)
 #print(f'RNA df K652: {rna_df_K562.shape}')
 #print(f'RNA df GM12878: {rna_df_GM12878.shape}')
 
-#ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data = prepare_hd5_input(enhancer_gene_k562_100kb_includeNoEnhancerGene, gene_k562_tss, gene_list, 'K562', num_features=3, rna_embedding=True, rna_df=rna_df_K562)
-'''
-np.save('K562.ensid.rna_encoding.npy', ensid_data)
-np.save('K562.pe_code.rna_encoding.npy', pe_code)
-np.save('K562.distance.rna_encoding.npy', distance_data)
-np.save('K562.activity.rna_encoding.npy', activity_data)
-np.save('K562.hic.rna_encoding.npy', hic_data)
-'''
+ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data = prepare_hd5_input(enhancer_gene_k562_100kb_includeNoEnhancerGene, gene_k562_tss, gene_list, 'K562', num_features=3, rna_embedding=True, rna_df=rna_df_K562)
 
-#file_path = '/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_embedding.hg38.h5'
-#create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data)
+file_path = '/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_embedding.hg38.h5'
+create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data)
 
 
 ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data = prepare_hd5_input(enhancer_gene_gm12878_100kb_includeNoEnhancerGene, gene_gm12878_tss, gene_list, 'GM12878', num_features=3, rna_embedding=True, rna_df=rna_df_GM12878)
-'''
-np.save('GM12878.ensid.rna_encoding.npy', ensid_data)
-np.save('GM12878.pe_code.rna_encoding.npy', pe_code)
-np.save('GM12878.distance.rna_encoding.npy', distance_data)
-np.save('GM12878.activity.rna_encoding.npy', activity_data)
-np.save('GM12878.hic.rna_encoding.npy', hic_data)
-'''
 
 file_path = '/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5'
 create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data)

@@ -170,7 +170,7 @@ class EPInformer_v2(nn.Module):
     # n_encoder: Number of transformer encoder layers.
     # out_dim: Output feature size.
     # head: Number of attention heads in transformer layers.
-    def __init__(self, base_size = 4, n_encoder=3, out_dim=128, head = 4, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_method=None, rna_transform=None):
+    def __init__(self, base_size = 4, n_encoder=4, out_dim=128, head = 8, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_method=None, rna_transform=None):
         super(EPInformer_v2, self).__init__()
         self.n_enhancer = n_enhancer
         self.out_dim = out_dim
@@ -196,6 +196,7 @@ class EPInformer_v2(nn.Module):
         # Multi-head self-attention captures long-range dependencies between sequence elements (e.g., interactions between enhancers and promoters).
         # Feed-forward layers refine the representation at each transformer layer.
         if useLN:
+            #print(f"embed_dim: {out_dim}, nhead={head}")
             self.attn_encoder = get_clones(MHAttention_encoderLayer(d_model=out_dim, nhead=head), self.n_encoder)
         else:
             self.attn_encoder = get_clones(MHAttention_encoderLayer_noLN(d_model=out_dim, nhead=head), self.n_encoder)
@@ -349,7 +350,8 @@ class EPInformer_v2(nn.Module):
             #print(f'pe_flatten_embed shape after add_pos_conv: {pe_flatten_embed} - final shape going into attn_encoder')
         attn_list = []
         for i in range(self.n_encoder):
-            pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=self.attn_mask.to(self.device))
+            #pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=self.attn_mask.to(self.device))
+            pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=None)
             attn_list.append(attn.unsqueeze(0))
         p_embed = torch.flatten(pe_flatten_embed[:,0,:], start_dim=1)
         if self.useFeat:
