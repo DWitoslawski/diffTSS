@@ -9,7 +9,7 @@ from tqdm import tqdm
 import os
 import h5py
 from multiprocessing import Pool
-
+from scripts.utils import FastaStringExtractor, one_hot_encode
 
 
 
@@ -48,6 +48,7 @@ def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_
 
 
 def process_gene(gene):
+    #print(globals())
     gene_df = gene_enhancer_table[gene_enhancer_table['ENSID'] == gene]
     if rna_method is not None:
         if rna_method == 'encoding' or rna_method == 'one-hot':
@@ -56,16 +57,18 @@ def process_gene(gene):
             gene_rna_df = rna_df[rna_df[0] == gene]
             
             '''
+			pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair, rna_df
             PE_code, activity_list, distance_list, contact_list, gene_name, PE_links, gene_rna_df = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_method=rna_method, rna_df=gene_rna_df)
 
         else:
             PE_code, activity_list, distance_list, contact_list, gene_name, PE_links = encode_promoter_enhancer_links(gene_df, max_seq_len=2000, max_n_enhancer=60, max_distanceToTSS=100_000, add_flanking=False, rna_method=rna_method, rna_df=gene_rna_df)
             '''
-        
+    
+    fasta_path = './data/hg38.fa'
     fasta_extractor = FastaStringExtractor(fasta_path)
-    gene_pe = gene_enhancer_df.sort_values(by='distance')
+    gene_pe = gene_df.sort_values(by='distance')
     row_0 = gene_pe.iloc[0]
-    gene_ensid=row_0['TargetGeneEnsembl_ID']
+    gene_ensid = row_0['TargetGeneEnsembl_ID']
     gene_name = row_0['TargetGene']
     gene_tss = row_0['TargetGeneTSS']
     gene_strand = row_0['strand']
@@ -78,15 +81,15 @@ def process_gene(gene):
     promoter_seq = fasta_extractor.extract(target_interval)
     promoter_code = one_hot_encode(promoter_seq)
     if rna_method == 'encoding' or rna_method == 'one-hot':
-        rna_signal = rna_df[[9]]
-        rna_df = rna_df[(rna_df[7] >= target_interval.start) & (rna_df[8] <= target_interval.end)]
-        new_index = rna_df[7].values - target_interval.start
+        rna_signal = gene_rna_df[[9]]
+        gene_rna_df = gene_rna_df[(gene_rna_df[7] >= target_interval.start) & (gene_rna_df[8] <= target_interval.end)]
+        new_index = gene_rna_df[7].values - target_interval.start
         rna_signal = rna_signal.set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)
-        rna_df = np.array(rna_signal).flatten()
+        gene_rna_df = np.array(rna_signal).flatten()
         #rna_signal = rna_signal.apply(lambda x: np.log10(x + 1))
         #promoter_code = np.concatenate((promoter_code, rna_signal), axis=1)
     if rna_method == 'embedding':
-        rna_df = np.concatenate([rna_df.reshape(1, 125), np.zeros([60, 125])])
+        gene_rna_df = np.concatenate([gene_rna_df.reshape(1, 125), np.zeros([60, 125])])
     enhancers_code = np.zeros((max_n_enhancer, max_seq_len, 4))
     enhancer_activity = np.zeros(max_n_enhancer)
     enhancer_distance = np.zeros(max_n_enhancer)
@@ -136,30 +139,30 @@ def process_gene(gene):
     #return pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair
             
         
-        contact_list = np.concatenate([[0], contact_list])
-        distance_list = np.concatenate([[0], distance_list/1000])
-        activity_list = np.concatenate([[0], activity_list])
-        # activity_list = np.log10(0.1+activity_list)
-        contact_list = np.log10(1+contact_list)
-        try:
-            gene_mRNA_feature = mRNA_feauture.loc[gene, mRNA_feats]
-        except KeyError:
-            dummy_mRNA_feature = pd.DataFrame(columns=mRNA_feats)
-            dummy_mRNA_feature.loc[0] = [None]*len(mRNA_feats)
-            gene_mRNA_feature = dummy_mRNA_feature.loc[0]
-        mRNA_promoter_feat = np.array(list(gene_mRNA_feature.values) + [promoter_signals.loc[gene, 'PromoterActivity']])
+    enhancer_contact = np.concatenate([[0], enhancer_contact])
+    enhancer_distance = np.concatenate([[0], enhancer_distance/1000])
+    enhancer_activity = np.concatenate([[0], enhancer_activity])
+    # activity_list = np.log10(0.1+activity_list)
+    enhancer_contact = np.log10(1+enhancer_contact)
+    try:
+        gene_mRNA_feature = mRNA_feauture.loc[gene, mRNA_feats]
+    except KeyError:
+        dummy_mRNA_feature = pd.DataFrame(columns=mRNA_feats)
+        dummy_mRNA_feature.loc[0] = [None]*len(mRNA_feats)
+        gene_mRNA_feature = dummy_mRNA_feature.loc[0]
+    mRNA_promoter_feat = np.array(list(gene_mRNA_feature.values) + [promoter_signals.loc[gene, 'PromoterActivity']])
     
     if rna_method is not None:
-        return pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat, gene_rna_df
+        return pe_code, enhancer_distance, enhancer_activity, enhancer_contact, mRNA_promoter_feat, gene_rna_df
     
-    return pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat
+    return pe_code, enhancer_distance, enhancer_activity, enhancer_contact, mRNA_promoter_feat
 
 
 
 
 if __name__ == "__main__":
-    enhancer_gene_k562_100kb = pd.read_csv('../data/K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
-    promoter_signals = pd.read_csv('../data/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
+    enhancer_gene_k562_100kb = pd.read_csv('./data/K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+    promoter_signals = pd.read_csv('./data/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
     promoter_signals['ENSID'] = promoter_signals['Ensembl_ID']
 
 
@@ -168,19 +171,23 @@ if __name__ == "__main__":
     #gene_gm12878_tss['ENSID'] = gene_gm12878_tss['Ensembl_ID']
 
 
-    gene_enhancer_table = enhancer_gene_k562_100kb.merge(gene_k562_tss, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
+    gene_enhancer_table = enhancer_gene_k562_100kb.merge(promoter_signals, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
     #enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.merge(gene_gm12878_tss, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
 
-    gene_list = list(gene_k562_tss['ENSID'])
+    gene_list = list(promoter_signals['ENSID'])
 
+    max_seq_len = 2000
+    add_flanking = False
+    max_n_enhancer = 60
+    max_distanceToTSS = 100_000
     cells = 'K562'
     num_features = 3
     rna_method = 'encoding'
-    rna_df = pd.read_csv('../data/RNASeq_bw/K562.stranded.ENCFF829PNJ.ENCFF336COA.coverage.txt', header=None, sep='\t')     #K562 rna
+    rna_df = pd.read_csv('./data/RNASeq_bw/K562.stranded.ENCFF829PNJ.ENCFF336COA.coverage.txt', header=None, sep='\t')     #K562 rna
     #rna_df = pd.read_csv('./data/RNASeq_bw/GM12878.stranded.ENCFF074SXQ.ENCFF164VLA.coverage.txt', header=None, sep='\t') #GM12878 rna
     
     
-    mRNA_feauture = pd.read_csv('../data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
+    mRNA_feauture = pd.read_csv('./data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
     promoter_signals['PromoterActivity'] = np.sqrt(promoter_signals['H3K27ac.RPM.TSS1Kb']*promoter_signals['DHS.RPM.TSS1Kb'])
     promoter_signals.set_index('ENSID', inplace=True)
     mRNA_feats = ['UTR5LEN_log10zscore',
@@ -195,7 +202,7 @@ if __name__ == "__main__":
     PE_links_list = []
     rna_df_list = []
     pool = Pool(processes=80)
-    for gene in tqdm(pool.imap(procesS_gene, gene_list), total=len(gene_list)):
+    for gene in tqdm(pool.imap(process_gene, gene_list), total=len(gene_list)):
         if rna_method is not None:
             pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat, gene_rna_df = gene
             rna_df_list.append(gene_rna_df)
@@ -203,16 +210,14 @@ if __name__ == "__main__":
             pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat = gene
 
         
-        PE_code_list.append(PE_code)
+        PE_code_list.append(pe_code)
         #PE_feat_list.append(PE_feat)
         PE_distance_list.append(distance_list)
         PE_activity_list.append(activity_list)
         PE_contact_list.append(contact_list)
         mRNA_promoter_list.append(mRNA_promoter_feat)
-        PE_links_list.append(PE_links)
             
             
-    PE_links_df = pd.concat(PE_links_list)
     PE_code_list = np.array(PE_code_list)
     #PE_feat_list = np.array(PE_feat_list)
     PE_distance_list = np.array(PE_distance_list)
