@@ -12,6 +12,26 @@ from multiprocessing import Pool
 from scripts.utils import FastaStringExtractor, one_hot_encode
 
 
+def rc_dna(seq):
+    """
+    Reverse complement the DNA sequence
+    >>> assert rc_seq("TATCG") == "CGATA"
+    >>> assert rc_seq("tatcg") == "cgata"
+    """
+    rc_hash = {
+        "A": "T",
+        "T": "A",
+        "C": "G",
+        "G": "C",
+        "N": "N",
+        "a": "t",
+        "t": "a",
+        "c": "g",
+        "g": "c",
+        "n": "n",
+    }
+    return "".join([rc_hash[s] for s in reversed(seq)])
+
 
 def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_data, hic_data, rna_data):
 
@@ -80,7 +100,7 @@ def process_gene(gene):
     target_interval = kipoiseq.Interval(chrom, int(gene_tss-max_seq_len/2), int(gene_tss+max_seq_len/2))
     promoter_seq = fasta_extractor.extract(target_interval)
     if gene_strand == '-':
-        promoter_seq = kipoiseq.transforms.functional.rc_dna(promoter_seq)
+        promoter_seq = rc_dna(promoter_seq)
     promoter_code = one_hot_encode(promoter_seq)
     if rna_method == 'encoding' or rna_method == 'one-hot':
         gene_rna_df = gene_rna_df[(gene_rna_df[7] >= target_interval.start) & (gene_rna_df[8] <= target_interval.end)]
