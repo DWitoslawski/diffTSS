@@ -83,9 +83,9 @@ def process_gene(gene):
         promoter_seq = kipoiseq.transforms.functional.rc_dna(promoter_seq)
     promoter_code = one_hot_encode(promoter_seq)
     if rna_method == 'encoding' or rna_method == 'one-hot':
-        rna_signal = rna_df[[9]]
-        rna_df = rna_df[(rna_df[7] >= target_interval.start) & (rna_df[8] <= target_interval.end)]
-        new_index = rna_df[7].values - target_interval.start
+        gene_rna_df = gene_rna_df[(gene_rna_df[7] >= target_interval.start) & (gene_rna_df[8] <= target_interval.end)]
+        rna_signal = gene_rna_df[[9]]
+        new_index = gene_rna_df[7].values - target_interval.start
         rna_signal = rna_signal.set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)
         if gene_strand == '-':
             rna_signal = rna_signal[::-1]
