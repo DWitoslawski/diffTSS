@@ -68,6 +68,7 @@ def process_gene(gene):
     gene_ensid=row_0['TargetGeneEnsembl_ID']
     gene_name = row_0['TargetGene']
     gene_tss = row_0['TargetGeneTSS']
+    gene_strand = row_0['strand']
     chrom = row_0['chr']
     if row_0['TargetGeneTSS'] != row_0['TargetGeneTSS']:
         gene_tss = row_0['tss']
@@ -157,8 +158,8 @@ def process_gene(gene):
 
 
 if __name__ == "__main__":
-    enhancer_gene_k562_100kb = pd.read_csv('./data/K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
-    promoter_signals = pd.read_csv('./data/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
+    enhancer_gene_k562_100kb = pd.read_csv('../data/K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+    promoter_signals = pd.read_csv('../data/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
     promoter_signals['ENSID'] = promoter_signals['Ensembl_ID']
 
 
@@ -175,11 +176,11 @@ if __name__ == "__main__":
     cells = 'K562'
     num_features = 3
     rna_method = 'encoding'
-    rna_df = pd.read_csv('./data/RNASeq_bw/K562.stranded.ENCFF829PNJ.ENCFF336COA.coverage.txt', header=None, sep='\t')     #K562 rna
+    rna_df = pd.read_csv('../data/RNASeq_bw/K562.stranded.ENCFF829PNJ.ENCFF336COA.coverage.txt', header=None, sep='\t')     #K562 rna
     #rna_df = pd.read_csv('./data/RNASeq_bw/GM12878.stranded.ENCFF074SXQ.ENCFF164VLA.coverage.txt', header=None, sep='\t') #GM12878 rna
     
     
-    mRNA_feauture = pd.read_csv('./data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
+    mRNA_feauture = pd.read_csv('../data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
     promoter_signals['PromoterActivity'] = np.sqrt(promoter_signals['H3K27ac.RPM.TSS1Kb']*promoter_signals['DHS.RPM.TSS1Kb'])
     promoter_signals.set_index('ENSID', inplace=True)
     mRNA_feats = ['UTR5LEN_log10zscore',
@@ -193,6 +194,7 @@ if __name__ == "__main__":
     mRNA_promoter_list = []
     PE_links_list = []
     rna_df_list = []
+    pool = Pool(processes=80)
     for gene in tqdm(pool.imap(procesS_gene, gene_list), total=len(gene_list)):
         if rna_method is not None:
             pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat, gene_rna_df = gene
