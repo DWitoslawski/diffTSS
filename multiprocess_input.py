@@ -240,7 +240,8 @@ if __name__ == "__main__":
         PE_activity_list.append(activity_list)
         PE_contact_list.append(contact_list)
         mRNA_promoter_list.append(mRNA_promoter_feat)
-            
+    
+    pool.terminate()        
             
     PE_code_list = np.array(PE_code_list)
     #PE_feat_list = np.array(PE_feat_list)
