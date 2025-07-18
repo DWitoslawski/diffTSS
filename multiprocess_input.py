@@ -233,7 +233,6 @@ if __name__ == "__main__":
         else:
             pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat = gene
 
-        
         PE_code_list.append(pe_code)
         #PE_feat_list.append(PE_feat)
         PE_distance_list.append(distance_list)

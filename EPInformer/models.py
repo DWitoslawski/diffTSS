@@ -350,8 +350,8 @@ class EPInformer_v2(nn.Module):
             #print(f'pe_flatten_embed shape after add_pos_conv: {pe_flatten_embed} - final shape going into attn_encoder')
         attn_list = []
         for i in range(self.n_encoder):
-            #pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=self.attn_mask.to(self.device))
-            pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=None)
+            pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=self.attn_mask.to(self.device))
+            #pe_flatten_embed, attn = self.attn_encoder[i](pe_flatten_embed, enhancers_padding_mask=enhancers_padding_mask, attn_mask=None)
             attn_list.append(attn.unsqueeze(0))
         p_embed = torch.flatten(pe_flatten_embed[:,0,:], start_dim=1)
         if self.useFeat:
