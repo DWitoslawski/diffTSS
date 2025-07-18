@@ -225,21 +225,22 @@ if __name__ == "__main__":
     mRNA_promoter_list = []
     PE_links_list = []
     rna_df_list = []
-    with Pool(processes=80) as pool:
+    pool = Pool(processes=80)
+    for gene in tqdm(pool.imap(process_gene, gene_list), total=len(gene_list)):
         if rna_method is not None:
-            pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat, gene_rna_df = tqdm(pool.imap(process_gene, gene_list), total=len(gene_list))
+            pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat, gene_rna_df = gene
             rna_df_list.append(gene_rna_df)
         else:
-            pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat = tqdm(pool.imap(process_gene, gene_list), total=len(gene_list))
+            pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat = gene
 
-
+        
         PE_code_list.append(pe_code)
         #PE_feat_list.append(PE_feat)
         PE_distance_list.append(distance_list)
         PE_activity_list.append(activity_list)
         PE_contact_list.append(contact_list)
         mRNA_promoter_list.append(mRNA_promoter_feat)
-
+    
     pool.close()
     pool.join()
             
