@@ -97,7 +97,7 @@ class Logger():
         
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, patience=3, verbose=False, delta=0, path='checkpoint.pt'):
+    def __init__(self, patience=6, verbose=False, delta=0, path='checkpoint.pt'):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -151,7 +151,7 @@ class EarlyStopping:
         
         
         
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=3e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-5, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -179,7 +179,9 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
     L_expr = nn.SmoothL1Loss()
     optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=1e-6)
     print('Model name:', net.name)
-    lrs = []
+    lrs = {}
+    lrs['train'] = []
+    lrs['valid'] = []
     # last_loss = None
     net.train()
     for epoch in range(EPOCHS):
@@ -228,14 +230,16 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
         print('[Epoch %d] loss: %.9f' %
                       (epoch + 1, running_loss/len(trainloader)))
         print('Training Loss: expression loss:', loss_e/len(trainloader))
+        lrs['train'].append(loss_e/len(trainloader))
         # log_cols = ['Epoch', 'Training_Loss', 'Validation_Loss', 'Validation_PearsonR_allGene',
         #             'Validation_R2_allGene', 'Validation_PearsonR_weGene', 'Validation_R2_weGene', 'Saved?']
 
 
-        val_mse_all, val_r2_all, val_pr_all = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
+        val_mse_all, val_r2_all, val_pr_all, val_curve_loss = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
         val_r2 = val_r2_all
         val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
-        print('Valdaition R square all:', val_r2_all)
+        print('Validation R square all:', val_r2_all)
+        lrs['valid'].append(val_curve_loss)
         early_stopping(-val_r2, net, epoch)
         if model_logger is not None:
             label_type = net.name.split('.')[-1]
@@ -249,7 +253,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
 
 
 
-def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=3e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method = None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method = None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -277,7 +281,9 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
     L_expr = nn.SmoothL1Loss()
     optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=1e-6)
     print('Model name:', net.name)
-    lrs = []
+    lrs = {}
+    lrs['train'] = []
+    lrs['valid'] = []
     val_r2_history = []
     # last_loss = None
     net.train()
@@ -338,10 +344,10 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
                 if param.grad is not None:
                     if torch.isnan(param.grad).any():
                         print(f"Gradient contains nan in {name}\nStopping...")
-                        return 0
+                        return 100
                     if torch.isinf(param.grad).any():
                         print(f"Gradient contains inf in {name}\nStopping...")
-                        return 0
+                        return 100
             # update the gradients
             optimizer.step()
             running_loss += loss.item()
@@ -353,7 +359,7 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
         #             'Validation_R2_allGene', 'Validation_PearsonR_weGene', 'Validation_R2_weGene', 'Saved?']
 
 
-        val_mse_all, val_r2_all, val_pr_all = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
+        val_mse_all, val_r2_all, val_pr_all, val_curve_loss = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
         val_r2 = val_r2_all
         val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
         print('Validation R square all:', val_r2_all)
@@ -375,11 +381,13 @@ def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_s
     validloader = data_utils.DataLoader(valid_ds, batch_size=batch_size, pin_memory=True, num_workers=0)
     net.eval()
     L_expr = nn.MSELoss()
+    L_curve_expr = nn.SmoothL1Loss()
     
     with torch.no_grad():
         preds = []
         actual = []
         loss_e = 0
+        loss_curve_e = 0
         for data in validloader:
             # print(inputs.size())
             if rna_method == 'embedding':
@@ -404,7 +412,9 @@ def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_s
             labels = list(y_expr.flatten().cpu().detach().numpy())
 
             loss_expr = L_expr(pred_expr, y_expr)
+            loss_curve_expr = L_curve_expr(pred_expr, y_expr)
             loss_e += loss_expr.item()
+            loss_curve_e += loss_curve_expr.item()
             preds += outputs
             actual += labels
 
@@ -412,8 +422,9 @@ def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_s
     peasonr, pvalue = stats.pearsonr(preds, actual)
     mse = mean_squared_error(preds, actual)
     print('Validation loss expression loss:', loss_e/len(validloader))
+    print('Validation SmoothL1Loss:', loss_curve_e/len(validloader))
     print("valid: mse", mse, "R_sqaure", r_value**2, 'peasonr', peasonr)
-    return mse, r_value**2, peasonr
+    return mse, r_value**2, peasonr, loss_curve_e/len(validloader)
 
 
 
@@ -562,12 +573,14 @@ class promoter_enhancer_dataset(Dataset):
         if self.rna_method is not None:
             if self.rna_method == 'encoding' or self.rna_method == 'one-hot':
                 rna_signal = self.data_h5['rna'][idx]
+                #rna_signal=np.log10(rna_signal+1)
                 rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
             #if self.rna_method == 'one-hot':
             #    rna_signal = self.data_h5['rna'][idx]
             #    rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
             elif self.rna_method == 'embedding':
                 rna_signal = self.data_h5['rna'][idx]
+                #rna_signal=np.log10(rna_signal+1)
         
         # apply data transformation to rna signal NEEDS TO BE FIXED
         if self.rna_transform is not None and self.rna_method is not None:

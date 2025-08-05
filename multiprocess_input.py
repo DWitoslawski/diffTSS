@@ -1,6 +1,7 @@
 from kipoiseq import Interval
 import pyfaidx
 import kipoiseq
+import argparse
 import numpy as np
 import pandas as pd
 import pyranges as pr
@@ -74,7 +75,7 @@ def process_gene(gene):
         if rna_method == 'encoding' or rna_method == 'one-hot':
             gene_rna_df = rna_df[rna_df[3] == gene]
         if rna_method == 'embedding':
-            gene_rna_df = rna_df[rna_df[0] == gene]
+            gene_rna_df = np.array(rna_df.loc[gene])
             
             '''
 			pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair, rna_df
@@ -185,18 +186,46 @@ def process_gene(gene):
 
 
 if __name__ == "__main__":
-    enhancer_gene_k562_100kb = pd.read_csv('./data/K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
-    promoter_signals = pd.read_csv('./data/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
-    promoter_signals['ENSID'] = promoter_signals['Ensembl_ID']
+    
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument('--cell', type=str, help ='cell line (support K562 and GM12878)', choices=['K562', 'GM12878'], required=True)
+    parser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', None], default=None, required=True)
 
-    #enhancer_gene_gm12878_100kb = pd.read_csv('./data/GM12878_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
-    #gene_gm12878_tss = pd.read_csv('./data/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
-    #gene_gm12878_tss['ENSID'] = gene_gm12878_tss['Ensembl_ID']
+    args = parser.parse_args()
 
+    cell = args.cell
+    rna_method = args.rna
 
-    gene_enhancer_table = enhancer_gene_k562_100kb.merge(promoter_signals, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
-    #enhancer_gene_gm12878_100kb_includeNoEnhancerGene = enhancer_gene_gm12878_100kb.merge(gene_gm12878_tss, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
+    if cell == 'K562':
+        enhancer_gene_k562_100kb = pd.read_csv('./data/K562_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+        promoter_signals = pd.read_csv('./data/ABC-multiTSS_nominated/K562/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
+        promoter_signals['ENSID'] = promoter_signals['Ensembl_ID']
+        gene_enhancer_table = enhancer_gene_k562_100kb.merge(promoter_signals, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
+
+        if rna_method == 'encoding' or rna_method == 'one_hot':
+            rna_df = pd.read_csv('./data/RNASeq_bw/K562.stranded.ENCFF336COA.ENCFF829PNJ.coverage.txt', header=None, sep='\t')
+            #rna_df = pd.read_csv('./data/RNASeq_bw/K562.unstranded.ENCFF448XCV.coverage.txt', header=None, sep='\t')
+            file_path = '/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5'
+
+        elif rna_method == 'embedding':
+            rna_df = pd.read_csv('./data/RNASeq_bw/gene_added_K562.stranded.ENCFF336COA.ENCFF829PNJ_values_TSS.tab', sep='\t', skiprows=3, header=None, index_col=0)
+            file_path = '/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_embedding.hg38.h5'
+
+    elif cell == 'GM12878':
+        enhancer_gene_gm12878_100kb = pd.read_csv('./data/GM12878_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+        promoter_signals = pd.read_csv('./data/ABC-multiTSS_nominated/GM12878/Neighborhoods/GeneList.txt', sep='\t')[['name', 'Ensembl_ID', 'chr', 'tss', 'strand', 'H3K27ac.RPM.TSS1Kb', 'DHS.RPM.TSS1Kb']]
+        promoter_signals['ENSID'] = promoter_signals['Ensembl_ID']
+        gene_enhancer_table = enhancer_gene_gm12878_100kb.merge(promoter_signals, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
+
+        if rna_method == 'encoding' or rna_method == 'one_hot':
+            rna_df = pd.read_csv('./data/RNASeq_bw/GM12878.stranded.ENCFF164VLA.ENCFF074SXQ.coverage.txt', header=None, sep='\t')
+            #rna_df = pd.read_csv('./data/RNASeq_bw/GM12878.unstranded.ENCFF104OTO.coverage.txt', header=None, sep='\t')
+            file_path = '/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5'	
+
+        elif rna_method == 'embedding':
+            rna_df = pd.read_csv('./data/RNASeq_bw/gene_added_GM12878.stranded.ENCFF164VLA.ENCFF074SXQ_values_TSS.tab', sep='\t', skiprows=3, header=None, index_col=0)
+            file_path = '/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_embedding.hg38.h5'
 
     gene_list = list(promoter_signals['ENSID'])
 
@@ -204,12 +233,7 @@ if __name__ == "__main__":
     add_flanking = False
     max_n_enhancer = 60
     max_distanceToTSS = 100_000
-    cells = 'K562'
     num_features = 3
-    rna_method = 'encoding'
-    rna_df = pd.read_csv('./data/RNASeq_bw/K562.stranded.ENCFF829PNJ.ENCFF336COA.coverage.txt', header=None, sep='\t')     #K562 rna
-    #rna_df = pd.read_csv('./data/RNASeq_bw/GM12878.stranded.ENCFF074SXQ.ENCFF164VLA.coverage.txt', header=None, sep='\t') #GM12878 rna
-    
     
     mRNA_feauture = pd.read_csv('./data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
     promoter_signals['PromoterActivity'] = np.sqrt(promoter_signals['H3K27ac.RPM.TSS1Kb']*promoter_signals['DHS.RPM.TSS1Kb'])
@@ -225,43 +249,34 @@ if __name__ == "__main__":
     mRNA_promoter_list = []
     PE_links_list = []
     rna_df_list = []
+    results_list = []
     pool = Pool(processes=80)
     for gene in tqdm(pool.imap(process_gene, gene_list), total=len(gene_list)):
         if rna_method is not None:
-            pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat, gene_rna_df = gene
-            rna_df_list.append(gene_rna_df)
-        else:
-            pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat = gene
+            #pe_code, distance_list, activity_list, contact_list, mRNA_promoter_feat, gene_rna_df = gene
+            results_list.append(gene)
 
-        PE_code_list.append(pe_code)
-        #PE_feat_list.append(PE_feat)
-        PE_distance_list.append(distance_list)
-        PE_activity_list.append(activity_list)
-        PE_contact_list.append(contact_list)
-        mRNA_promoter_list.append(mRNA_promoter_feat)
-    
     pool.close()
     pool.join()
-            
+
+    for result in results_list:
+        PE_code_list.append(result[0])
+        #PE_feat_list.append(PE_feat)
+        PE_distance_list.append(result[1])
+        PE_activity_list.append(result[2])
+        PE_contact_list.append(result[3])
+        mRNA_promoter_list.append(result[4])
+        if rna_method is not None:
+            rna_df_list.append(result[5])
+
+    del results_list
+
     PE_code_list = np.array(PE_code_list)
     #PE_feat_list = np.array(PE_feat_list)
     PE_distance_list = np.array(PE_distance_list)
     PE_activity_list = np.array(PE_activity_list)
     PE_contact_list = np.array(PE_contact_list)
     mRNA_promoter_list = np.array(mRNA_promoter_list)
-    #return PE_code_list, PE_feat_list, mRNA_promoter_list, PE_links_df
     if rna_method is not None:
         rna_df_list = np.array(rna_df_list)
-        file_path = '/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5'
         create_h5_data(file_path, gene_list, PE_code_list, PE_distance_list, PE_activity_list, PE_contact_list, rna_df_list)
-
-    
-
-
-    #ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data = prepare_hd5_input(enhancer_gene_k562_100kb_includeNoEnhancerGene, gene_k562_tss, gene_list, 'K562', num_features=3, rna_method='encoding', rna_df=rna_df_K562)
-
-    
-    
-
-    #file_path = '/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5'
-    #create_h5_data(file_path, ensid_data, pe_code, distance_data, activity_data, hic_data, rna_data)

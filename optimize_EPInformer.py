@@ -199,7 +199,8 @@ class Objective:
                 n_extraFeat=self.n_extraFeat,
                 device=self.device,
                 rna_method=trial_params['rna_method'],
-                rna_transform=trial_params['rna_transform']
+                rna_transform=trial_params['rna_transform'],
+                n_enhancer=60
             )
         else:
             model = EPInformer_v2(
@@ -210,7 +211,8 @@ class Objective:
                 n_extraFeat=self.n_extraFeat,
                 device=self.device,
                 rna_method=trial_params['rna_method'],
-                rna_transform=trial_params['rna_transform']
+                rna_transform=trial_params['rna_transform'],
+                n_enhancer=60
             )
 
             #model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, n_enhancer=n_enhancers, out_dim=64, n_rnaFeat=n_rnaFeat, n_extraFeat=n_extraFeat, device=device).to(device)
@@ -240,9 +242,9 @@ class Objective:
             #'useBN': trial.suggest_categorical('useBN', [True, False]), 
             #'useLN': trial.suggest_categorical('useLN', [True, False]),
             #'out_dim': trial.suggest_categorical("out_dim", [16, 32, 64]),
-            'learning_rate': trial.suggest_float("learning_rate", 1e-5, 1e-3),
-            'n_encoder': trial.suggest_int("n_encoder", 3, 4),
-            'head': trial.suggest_categorical("head", [4, 8]),
+            'learning_rate': trial.suggest_categorical("learning_rate", [1e-5, 1e-4, 1e-3]),
+            'n_encoder': trial.suggest_int("n_encoder", 3, 4, 5),
+            'head': trial.suggest_categorical("head", [4, 8, 16]),
             'rna_method': trial.suggest_categorical('rna_method', ['encoding', 'embedding', 'one-hot']),
             'rna_transform': trial.suggest_categorical('rna_transform', ['log10', 'sigmoid', 'tanh'])
             #'epochs': 10
@@ -360,7 +362,7 @@ objective = Objective(
 )
 
 # Create an Optuna study
-study_name = "diffTSS"
+study_name = "diffTSS_stranded_attnmask"
 with open(pg_pass_file, 'r') as f:
     db_password = f.read().strip()
 storage = optuna.storages.RDBStorage(url="postgresql://witoslaw:"+db_password+"@"+postgres_host+":"+str(postgres_port)+"/diffTSS")

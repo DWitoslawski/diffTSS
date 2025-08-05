@@ -6,6 +6,7 @@ import os
 import scripts.utils_forTraining as utils
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 from EPInformer.models import EPInformer_v2, enhancer_predictor_256bp
 from scipy import stats
@@ -95,7 +96,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:0")
+    device = torch.device("cuda:1")
     #device = 'cuda'
 else:
     device = 'cpu'
@@ -179,5 +180,18 @@ for fi in fold_list:
 
     model = model.to(device)
     model.name = model.name.replace('EPInformerV2', args.model_type) + '.' +  cell + '.' + expr_type
-    utils.train(model, train_ds, valid_dataset=valid_ds, EPOCHS=n_epoch, model_name = model.name, fold_i=fi, batch_size=batch_size, rna_method=rna_method, device=device, saved_model_path=saved_model_path)
+    loss_history = utils.train(model, train_ds, valid_dataset=valid_ds, EPOCHS=n_epoch, model_name = model.name, fold_i=fi, batch_size=batch_size, rna_method=rna_method, device=device, saved_model_path=saved_model_path)
     test_df = utils.test(model, test_ds, model_name = model.name, saved_model_path=saved_model_path, fold_i=fi, batch_size=batch_size, rna_method=rna_method, device=device)
+    
+    train_loss = loss_history['train']
+    valid_loss = loss_history['valid']
+    
+    plt.plot(range(1,len(train_loss)+1), train_loss, label='Train')
+    plt.plot(range(1,len(valid_loss)+1), valid_loss, label='Valid')
+    plt.xticks(range(1,len(train_loss)+1))
+    plt.title(f"Train Loss")
+    plt.ylabel("Smooth L1 Loss")
+    plt.xlabel("Epoch")
+    plt.legend()
+    plt.savefig(f"{saved_model_path}/fold{fi}_{model.name}.Training_Curve.png")
+    plt.clf()

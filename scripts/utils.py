@@ -62,13 +62,14 @@ class FastaStringExtractor:
 def one_hot_encode(sequence):
     return kipoiseq.transforms.functional.one_hot_dna(sequence).astype(np.uint8)
 
-def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.fa', max_n_enhancer = 60, max_distanceToTSS = 100_000, max_seq_len=2000, add_flanking=False, rna_method=None, rna_df=None):
+def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './hg38.fa', max_n_enhancer = 60, max_distanceToTSS = 100_000, max_seq_len=2000, add_flanking=False, rna_method=None, rna_df=None):
     fasta_extractor = FastaStringExtractor(fasta_path)
     gene_pe = gene_enhancer_df.sort_values(by='distance')
     row_0 = gene_pe.iloc[0]
     gene_ensid=row_0['TargetGeneEnsembl_ID']
     gene_name = row_0['TargetGene']
     gene_tss = row_0['TargetGeneTSS']
+    gene_strand = row_0['strand']
     chrom = row_0['chr']
     if row_0['TargetGeneTSS'] != row_0['TargetGeneTSS']:
         gene_tss = row_0['tss']
@@ -194,7 +195,7 @@ def prepare_input(gene_enhancer_table, gene_list, cell, num_features = 3):
 def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, num_features = 3, rna_method=None, rna_df=None):
     # enhancer_gene_k562_100kb[enhancer_gene_k562_100kb['#chr'] == 'chrX']['TargetGene'].unique()
     #mRNA_feauture = pd.read_csv('./data/mRNA_halflife_features.csv', index_col='gene_id')
-    mRNA_feauture = pd.read_csv('./data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
+    mRNA_feauture = pd.read_csv('./RNA_CAGE.txt', sep='\t', index_col='ENSID')
     promoter_signals['PromoterActivity'] = np.sqrt(promoter_signals['H3K27ac.RPM.TSS1Kb']*promoter_signals['DHS.RPM.TSS1Kb'])
     promoter_signals.set_index('ENSID', inplace=True) 
     mRNA_feats = ['UTR5LEN_log10zscore',
