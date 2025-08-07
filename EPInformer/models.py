@@ -110,6 +110,7 @@ class MHAttention_encoderLayer(nn.Module):
         self.ff = nn.Sequential(
             nn.Linear(d_model, d_model*4),
             nn.ReLU(),
+            nn.Dropout(0.2),
             nn.Linear(d_model*4, d_model)
         )
     # self-attention block
@@ -244,6 +245,7 @@ class EPInformer_v2(nn.Module):
                     nn.Linear(101, int(self.out_dim/32)), 
                      # nn.Linear(38, 8), # 2kb nn.Linear(101, 8)
                     nn.ELU(),
+                    nn.Dropout(0.2),
                 )
             else:
                 self.conv_out = nn.Sequential(
@@ -271,6 +273,7 @@ class EPInformer_v2(nn.Module):
                     nn.Linear(101, int(self.out_dim/32)), 
                      # nn.Linear(38, 8), # 2kb nn.Linear(101, 8)
                     nn.ELU(),
+                    nn.Dropout(0.2),
                 )
         else:
             self.conv_out = nn.Sequential(
@@ -285,6 +288,7 @@ class EPInformer_v2(nn.Module):
                 nn.Linear(101, int(self.out_dim/32)),
                 # nn.Linear(38, 8), # 2kb nn.Linear(101, 8)
                 nn.ELU(),
+                nn.Dropout(0.2),
             )
         if self.useFeat:
             if self.usePromoterSignal:
@@ -298,16 +302,20 @@ class EPInformer_v2(nn.Module):
             self.pToExpr = nn.Sequential(
                         nn.Linear(self.out_dim+feat_n, 128),
                         nn.ReLU(),
+                        nn.Dropout(0.2),
                         nn.Linear(128, 128),
                         nn.ReLU(),
+                        nn.Dropout(0.2),
                         nn.Linear(128, 1),
                     )
         else:
             self.pToExpr = nn.Sequential(
                     nn.Linear(self.out_dim, 128),
                     nn.ReLU(),
+                    nn.Dropout(0.2),
                     nn.Linear(128, 128),
                     nn.ReLU(),
+                    nn.Dropout(0.2),
                     nn.Linear(128, 1),
                 )
         self.add_pos_conv = nn.Sequential(
