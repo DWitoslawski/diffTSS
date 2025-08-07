@@ -125,7 +125,7 @@ class EarlyStopping:
             self.save_checkpoint(val_loss, model, epoch_i)
         elif score < self.best_score + self.delta:
             self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}', 'best_score', self.best_score)
+            print(f'EarlyStopping counter: {self.counter} out of {self.patience}', 'best_score', -self.best_score)
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
@@ -151,7 +151,7 @@ class EarlyStopping:
         
         
         
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-5, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -173,7 +173,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
 
     
     trainloader = data_utils.DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=5, pin_memory=True)
-    early_stopping = EarlyStopping(patience=3,
+    early_stopping = EarlyStopping(patience=6,
                verbose=True, path= saved_model_path + "/fold_" + str(fold_i) + "_best_"+model_name+"_checkpoint.pt")
 
     L_expr = nn.SmoothL1Loss()
@@ -235,12 +235,12 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
         #             'Validation_R2_allGene', 'Validation_PearsonR_weGene', 'Validation_R2_weGene', 'Saved?']
 
 
-        val_mse_all, val_r2_all, val_pr_all, val_curve_loss = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
+        val_mse_all, val_r2_all, val_pr_all, val_smooth_l1_loss = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
         val_r2 = val_r2_all
         val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
         print('Validation R square all:', val_r2_all)
-        lrs['valid'].append(val_curve_loss)
-        early_stopping(-val_r2, net, epoch)
+        lrs['valid'].append(val_smooth_l1_loss)
+        early_stopping(lrs['train'][-1], net, epoch)
         if model_logger is not None:
             label_type = net.name.split('.')[-1]
             model_logger.add([fold_i, epoch, running_loss/len(trainloader), val_mse_all, val_pr_all, val_r2_all, val_pr_wE, val_r2_wE, early_stopping.counter, label_type])
@@ -275,7 +275,7 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
 
     trainloader = data_utils.DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=6, pin_memory=True)
 #    trainloader = data_utils.DataLoader(train_ds, batch_size=batch_size, shuffle=False, num_workers=1, pin_memory=True)
-    early_stopping = EarlyStopping(patience=3,
+    early_stopping = EarlyStopping(patience=6,
                verbose=True, path= saved_model_path + "/fold_" + str(fold_i) + "_best_"+model_name+"_checkpoint.pt")
 
     L_expr = nn.SmoothL1Loss()
@@ -359,12 +359,12 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
         #             'Validation_R2_allGene', 'Validation_PearsonR_weGene', 'Validation_R2_weGene', 'Saved?']
 
 
-        val_mse_all, val_r2_all, val_pr_all, val_curve_loss = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
+        val_mse_all, val_r2_all, val_pr_all, val_smooth_l1_loss = validate(net, valid_ds, n_enhancers=n_enhancers, rna_method=rna_method, device=device)
         val_r2 = val_r2_all
         val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
         print('Validation R square all:', val_r2_all)
         val_r2_history.append(val_r2_all)
-        early_stopping(-val_r2, net, epoch)
+        early_stopping(val_smooth_l1_loss, net, epoch)
         if model_logger is not None:
             label_type = net.name.split('.')[-1]
             model_logger.add([fold_i, epoch, running_loss/len(trainloader), val_mse_all, val_pr_all, val_r2_all, val_pr_wE, val_r2_wE, early_stopping.counter, label_type])
