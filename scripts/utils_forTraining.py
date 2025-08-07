@@ -151,7 +151,7 @@ class EarlyStopping:
         
         
         
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-3, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -177,7 +177,8 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
                verbose=True, path= saved_model_path + "/fold_" + str(fold_i) + "_best_"+model_name+"_checkpoint.pt")
 
     L_expr = nn.SmoothL1Loss()
-    optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=1e-6)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=1e-5)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
     print('Model name:', net.name)
     lrs = {}
     lrs['train'] = []
@@ -226,6 +227,8 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             # update the gradients
             optimizer.step()
             running_loss += loss.item()
+        
+        #scheduler.step()
 
         print('[Epoch %d] loss: %.9f' %
                       (epoch + 1, running_loss/len(trainloader)))
@@ -240,7 +243,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
         val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
         print('Validation R square all:', val_r2_all)
         lrs['valid'].append(val_smooth_l1_loss)
-        early_stopping(lrs['train'][-1], net, epoch)
+        early_stopping(val_smooth_l1_loss, net, epoch)
         if model_logger is not None:
             label_type = net.name.split('.')[-1]
             model_logger.add([fold_i, epoch, running_loss/len(trainloader), val_mse_all, val_pr_all, val_r2_all, val_pr_wE, val_r2_wE, early_stopping.counter, label_type])
