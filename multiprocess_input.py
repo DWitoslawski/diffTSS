@@ -71,9 +71,10 @@ def create_h5_data(file_path, ensid_data, pe_code_data, distance_data, activity_
 def process_gene(gene):
     #print(globals())
     gene_df = gene_enhancer_table[gene_enhancer_table['ENSID'] == gene]
+    gene_rna_df_list = []
     if rna_method is not None:
         if rna_method == 'encoding' or rna_method == 'one-hot':
-            gene_rna_df = rna_df[rna_df[3] == gene]
+            gene_rna_df_list.append(rna_df[rna_df[3] == gene])
         if rna_method == 'embedding':
             gene_rna_df = np.array(rna_df.loc[gene])
             
@@ -104,13 +105,17 @@ def process_gene(gene):
         promoter_seq = rc_dna(promoter_seq)
     promoter_code = one_hot_encode(promoter_seq)
     if rna_method == 'encoding' or rna_method == 'one-hot':
-        gene_rna_df = gene_rna_df[(gene_rna_df[7] >= target_interval.start) & (gene_rna_df[8] <= target_interval.end)]
-        rna_signal = gene_rna_df[[9]]
-        new_index = gene_rna_df[7].values - target_interval.start
-        rna_signal = rna_signal.set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)
-        if gene_strand == '-':
-            rna_signal = rna_signal[::-1]
-        gene_rna_df = np.array(rna_signal).flatten()
+        rna_signal_list = []
+        for gene_rna_df in gene_rna_df_list:
+            gene_rna_df = gene_rna_df[(gene_rna_df[7] >= target_interval.start) & (gene_rna_df[8] <= target_interval.end)]
+            rna_signal = gene_rna_df[[9]]
+            new_index = gene_rna_df[7].values - target_interval.start
+            rna_signal = rna_signal.set_index(new_index).reindex(list(range(0,max_seq_len)), fill_value=0)
+            if gene_strand == '-':
+                rna_signal = rna_signal[::-1]
+            rna_signal = np.array(rna_signal).flatten()
+            rna_signal_list.append(rna_signal)
+        rna_signal_list = np.array(rna_signal_list)
         #rna_signal = rna_signal.apply(lambda x: np.log10(x + 1))
         #promoter_code = np.concatenate((promoter_code, rna_signal), axis=1)
     if rna_method == 'embedding':
@@ -178,7 +183,7 @@ def process_gene(gene):
     mRNA_promoter_feat = np.array(list(gene_mRNA_feature.values) + [promoter_signals.loc[gene, 'PromoterActivity']])
     
     if rna_method is not None:
-        return pe_code, enhancer_distance, enhancer_activity, enhancer_contact, mRNA_promoter_feat, gene_rna_df
+        return pe_code, enhancer_distance, enhancer_activity, enhancer_contact, mRNA_promoter_feat, rna_signal_list
     
     return pe_code, enhancer_distance, enhancer_activity, enhancer_contact, mRNA_promoter_feat
 
@@ -204,7 +209,11 @@ if __name__ == "__main__":
         gene_enhancer_table = enhancer_gene_k562_100kb.merge(promoter_signals, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
 
         if rna_method == 'encoding' or rna_method == 'one_hot':
-            rna_df = pd.read_csv('./data/RNASeq_bw/K562.stranded.ENCFF336COA.ENCFF829PNJ.coverage.txt', header=None, sep='\t')
+            samples = glob.glob('./data/RNASeq_bw/K562*stranded*coverage.txt')
+            rna_df_list = []
+            for file in samples:
+                rna_df_list.append(pd.read_csv(file, header=None, sep='\t'))
+            #rna_df = pd.read_csv('./data/RNASeq_bw/K562.stranded.ENCFF336COA.ENCFF829PNJ.coverage.txt', header=None, sep='\t')
             #rna_df = pd.read_csv('./data/RNASeq_bw/K562.unstranded.ENCFF448XCV.coverage.txt', header=None, sep='\t')
             file_path = '/scratch/han_lab/dwito/EPInformer/K562_enhancer_promoter_encoding.rna_encoding.hg38.h5'
 
@@ -219,7 +228,11 @@ if __name__ == "__main__":
         gene_enhancer_table = enhancer_gene_gm12878_100kb.merge(promoter_signals, left_on='TargetGeneEnsembl_ID', right_on='Ensembl_ID', how='right', suffixes=['', '_gene']).reset_index()
 
         if rna_method == 'encoding' or rna_method == 'one_hot':
-            rna_df = pd.read_csv('./data/RNASeq_bw/GM12878.stranded.ENCFF164VLA.ENCFF074SXQ.coverage.txt', header=None, sep='\t')
+            samples = glob.glob('./data/RNASeq_bw/GM12878*stranded*coverage.txt')
+            rna_df_list = []
+            for file in samples:
+                rna_df_list.append(pd.read_csv(file, header=None, sep='\t'))
+            #rna_df = pd.read_csv('./data/RNASeq_bw/GM12878.stranded.ENCFF164VLA.ENCFF074SXQ.coverage.txt', header=None, sep='\t')
             #rna_df = pd.read_csv('./data/RNASeq_bw/GM12878.unstranded.ENCFF104OTO.coverage.txt', header=None, sep='\t')
             file_path = '/scratch/han_lab/dwito/EPInformer/GM12878_enhancer_promoter_encoding.rna_encoding.hg38.h5'	
 
@@ -248,7 +261,7 @@ if __name__ == "__main__":
     PE_contact_list = []
     mRNA_promoter_list = []
     PE_links_list = []
-    rna_df_list = []
+    rna_signal_list = []
     results_list = []
     pool = Pool(processes=80)
     for gene in tqdm(pool.imap(process_gene, gene_list), total=len(gene_list)):
@@ -267,7 +280,7 @@ if __name__ == "__main__":
         PE_contact_list.append(result[3])
         mRNA_promoter_list.append(result[4])
         if rna_method is not None:
-            rna_df_list.append(result[5])
+            rna_signal_list.append(result[5])
 
     del results_list
 
@@ -278,5 +291,5 @@ if __name__ == "__main__":
     PE_contact_list = np.array(PE_contact_list)
     mRNA_promoter_list = np.array(mRNA_promoter_list)
     if rna_method is not None:
-        rna_df_list = np.array(rna_df_list)
-        create_h5_data(file_path, gene_list, PE_code_list, PE_distance_list, PE_activity_list, PE_contact_list, rna_df_list)
+        rna_signal_list = np.array(rna_signal_list)
+        create_h5_data(file_path, gene_list, PE_code_list, PE_distance_list, PE_activity_list, PE_contact_list, rna_signal_list)
