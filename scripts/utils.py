@@ -199,7 +199,7 @@ def prepare_input(gene_enhancer_table, gene_list, cell, num_features = 3):
 def prepare_hd5_input(gene_enhancer_table, promoter_signals, gene_list, cells, num_features = 3, rna_method=None, rna_df_list=None):
     # enhancer_gene_k562_100kb[enhancer_gene_k562_100kb['#chr'] == 'chrX']['TargetGene'].unique()
     #mRNA_feauture = pd.read_csv('./data/mRNA_halflife_features.csv', index_col='gene_id')
-    mRNA_feauture = pd.read_csv('./RNA_CAGE.txt', sep='\t', index_col='ENSID')
+    mRNA_feauture = pd.read_csv('./data/RNA_CAGE.txt', sep='\t', index_col='ENSID')
     promoter_signals['PromoterActivity'] = np.sqrt(promoter_signals['H3K27ac.RPM.TSS1Kb']*promoter_signals['DHS.RPM.TSS1Kb'])
     promoter_signals.set_index('ENSID', inplace=True) 
     mRNA_feats = ['UTR5LEN_log10zscore',
