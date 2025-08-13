@@ -74,10 +74,11 @@ def process_gene(gene):
     gene_df = gene_enhancer_table[gene_enhancer_table['ENSID'] == gene]
     gene_rna_df_list = []
     if rna_method is not None:
-        if rna_method == 'encoding' or rna_method == 'one-hot':
-            gene_rna_df_list.append(rna_df[rna_df[3] == gene])
-        if rna_method == 'embedding':
-            gene_rna_df = np.array(rna_df.loc[gene])
+        for rna_df in rna_df_list:
+            if rna_method == 'encoding' or rna_method == 'one-hot':
+                gene_rna_df_list.append(rna_df[rna_df[3] == gene])
+            if rna_method == 'embedding':
+                gene_rna_df = np.array(rna_df.loc[gene])
             
             '''
 			pe_code, enhancer_activity, enhancer_distance, enhancer_contact, gene_name, gene_element_pair, rna_df
