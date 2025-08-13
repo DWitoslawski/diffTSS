@@ -62,7 +62,7 @@ class FastaStringExtractor:
 def one_hot_encode(sequence):
     return kipoiseq.transforms.functional.one_hot_dna(sequence).astype(np.uint8)
 
-def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './hg38.fa', max_n_enhancer = 60, max_distanceToTSS = 100_000, max_seq_len=2000, add_flanking=False, rna_method=None, rna_df_list=None):
+def encode_promoter_enhancer_links(gene_enhancer_df, fasta_path = './data/hg38.fa', max_n_enhancer = 60, max_distanceToTSS = 100_000, max_seq_len=2000, add_flanking=False, rna_method=None, rna_df_list=None):
     fasta_extractor = FastaStringExtractor(fasta_path)
     gene_pe = gene_enhancer_df.sort_values(by='distance')
     row_0 = gene_pe.iloc[0]
