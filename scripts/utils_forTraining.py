@@ -173,12 +173,15 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
 
     
     trainloader = data_utils.DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=5, pin_memory=True)
-    early_stopping = EarlyStopping(patience=6,
+    early_stopping = EarlyStopping(patience=10,
                verbose=True, path= saved_model_path + "/fold_" + str(fold_i) + "_best_"+model_name+"_checkpoint.pt")
 
     L_expr = nn.SmoothL1Loss()
-    optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=1e-5)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=1e-4)
+    #scheduler1 = torch.optim.lr_scheduler.LinearLR(optimizer, total_iters=10)
+    #scheduler2 = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
+    #scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[10])
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.7)
     print('Model name:', net.name)
     lrs = {}
     lrs['train'] = []
@@ -228,7 +231,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
             optimizer.step()
             running_loss += loss.item()
         
-        #scheduler.step()
+        scheduler.step()
 
         print('[Epoch %d] loss: %.9f' %
                       (epoch + 1, running_loss/len(trainloader)))
@@ -243,6 +246,9 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
         val_pr_wE, val_r2_wE = val_pr_all, val_r2_all
         print('Validation R square all:', val_r2_all)
         lrs['valid'].append(val_smooth_l1_loss)
+        
+        #scheduler.step(val_smooth_l1_loss)
+        
         early_stopping(val_smooth_l1_loss, net, epoch)
         if model_logger is not None:
             label_type = net.name.split('.')[-1]
@@ -558,6 +564,7 @@ class promoter_enhancer_dataset(Dataset):
         
     def __len__(self):
         return len(self.data_h5['ensid'])
+        #return self.data_h5['rna'].shape[0] * self.data_h5['rna'].shape[1]
 
     def __getitem__(self, idx):
         sample_ensid = self.data_h5['ensid'][idx].decode()
