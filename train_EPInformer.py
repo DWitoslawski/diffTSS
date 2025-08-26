@@ -80,7 +80,7 @@ parser.add_argument('--distance_threshold', type=int, help='max distance to TSS'
 parser.add_argument('--hic_threshold', type=int, help='hic loop thresold', default=-1) 
 parser.add_argument('--expr_assay', type=str, help='expression_assay', choices=['CAGE', 'RNA'])
 parser.add_argument('--batch_size', type=int, help='batch size', default=16)
-parser.add_argument('--n_interact_enc',type=int, help='layers of interaction encoder', default=4)
+parser.add_argument('--n_interact_enc',type=int, help='layers of interaction encoder', default=3)
 parser.add_argument('--epochs',type=int, help='training epochs', default=100)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
@@ -132,11 +132,17 @@ datetime_str = today.strftime("%Y-%m-%d-%H")
 #split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
 saved_model_path = './trained_models/{}/'.format(datetime_str)
 
-EP_df = pd.read_csv(f'/home/witoslaw/data/diffTSS/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
+EP_df = pd.read_csv(f'/home/witoslaw/data/diffTSS/data/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
 promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
-all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
+
+all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS/data', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
+num_samples = all_ds.data_h5['rna'].shape[1]
+
+promoter_df = pd.concat([promoter_df] * num_samples, ignore_index=True)
+
 ensid_list = [eid.decode() for eid in all_ds.data_h5['ensid'][:]]
+ensid_list = ensid_list * num_samples
 ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
 ensid_df['idx'] = np.arange(len(ensid_list))
 ensid_df = ensid_df.set_index('ensid')
@@ -189,7 +195,7 @@ for fi in fold_list:
     plt.plot(range(1,len(train_loss)+1), train_loss, label='Train')
     plt.plot(range(1,len(valid_loss)+1), valid_loss, label='Valid')
     plt.xticks(range(1,len(train_loss)+1))
-    plt.title(f"Train Loss")
+    plt.title(f"Train Loss {cell}")
     plt.ylabel("Smooth L1 Loss")
     plt.xlabel("Epoch")
     plt.legend()

@@ -152,7 +152,7 @@ class EarlyStopping:
         
         
         
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-3, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-2, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -174,15 +174,16 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
 
     
     trainloader = data_utils.DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=5, pin_memory=True)
-    early_stopping = EarlyStopping(patience=10,
+    early_stopping = EarlyStopping(patience=6,
                verbose=True, path= saved_model_path + "/fold_" + str(fold_i) + "_best_"+model_name+"_checkpoint.pt")
 
     L_expr = nn.SmoothL1Loss()
     optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=1e-4)
-    #scheduler1 = torch.optim.lr_scheduler.LinearLR(optimizer, total_iters=10)
+    scheduler1 = torch.optim.lr_scheduler.LinearLR(optimizer, total_iters=5)
     #scheduler2 = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
-    #scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[10])
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.7)
+    scheduler2 = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.7)
+    scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[5])
+    #scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.7)
     print('Model name:', net.name)
     lrs = {}
     lrs['train'] = []
@@ -195,7 +196,7 @@ def train(net, training_dataset, fold_i, saved_model_path='../models', learning_
         running_loss = 0
         loss_e = 0
         # print('model training mode is:', net.training)
-        for data in tqdm(trainloader):
+        for data in tqdm(trainloader, desc="Train"):
             # print(inputs.size())
             optimizer.zero_grad()
             if rna_method == 'embedding':
@@ -304,7 +305,7 @@ def train_foropt(net, training_dataset, fold_i, saved_model_path='../models', le
         running_loss = 0
         loss_e = 0
         # print('model training mode is:', net.training)
-        for data in tqdm(trainloader):
+        for data in tqdm(trainloader, desc="Train"):
             # print(inputs.size())
             optimizer.zero_grad()
             if rna_method == 'embedding':
@@ -398,7 +399,7 @@ def validate(net, valid_ds,  net_type = 'seq_feat_dist', n_enhancers=50, batch_s
         actual = []
         loss_e = 0
         loss_curve_e = 0
-        for data in validloader:
+        for data in tqdm(validloader, desc="Valid"):
             # print(inputs.size())
             if rna_method == 'embedding':
                 input_PE, input_feat, input_dist, y_expr, eid, rna_emb = data
@@ -458,7 +459,7 @@ def test(net, test_ds, fold_i, model_name = None, saved_model_path=None, batch_s
         preds = []
         actual = []
         ensid_list = []
-        for data in tqdm(testloader):
+        for data in tqdm(testloader, desc="Test"):
             if rna_method == 'embedding':
                 input_PE, input_feat, input_dist, y_expr, eid, rna_emb = data
             else:
@@ -568,11 +569,14 @@ class promoter_enhancer_dataset(Dataset):
         #return self.data_h5['rna'].shape[0] * self.data_h5['rna'].shape[1]
 
     def __getitem__(self, idx):
-        sample_ensid = self.data_h5['ensid'][idx].decode()
-        seq_code = self.data_h5['pe_code'][idx]
-        enhancer_distance = self.data_h5['distance'][idx,1:]
-        enhancer_intensity = self.data_h5['activity'][idx,1:]
-        enhancer_contact = self.data_h5['hic'][idx,1:]
+        sample_idx = math.floor(idx / len(self.promoter_df))
+        gene_idx = idx % len(self.promoter_df)
+        
+        sample_ensid = self.data_h5['ensid'][gene_idx].decode()
+        seq_code = self.data_h5['pe_code'][gene_idx]
+        enhancer_distance = self.data_h5['distance'][gene_idx,1:]
+        enhancer_intensity = self.data_h5['activity'][gene_idx,1:]
+        enhancer_contact = self.data_h5['hic'][gene_idx,1:]
 
         if self.signal_type == 'H3K27ac':
             promoter_activity = self.promoter_df.loc[sample_ensid]['PromoterActivity']
@@ -583,14 +587,14 @@ class promoter_enhancer_dataset(Dataset):
         # get rna signal
         if self.rna_method is not None:
             if self.rna_method == 'encoding' or self.rna_method == 'one-hot':
-                rna_signal = self.data_h5['rna'][idx]
+                rna_signal = self.data_h5['rna'][gene_idx, sample_idx]
                 #rna_signal=np.log10(rna_signal+1)
                 rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
             #if self.rna_method == 'one-hot':
             #    rna_signal = self.data_h5['rna'][idx]
             #    rna_signal = np.concatenate([rna_signal.reshape(1,2000,1), np.zeros([60,2000,1])])
             elif self.rna_method == 'embedding':
-                rna_signal = self.data_h5['rna'][idx]
+                rna_signal = self.data_h5['rna'][gene_idx, sample_idx]
                 #rna_signal=np.log10(rna_signal+1)
         
         # apply data transformation to rna signal NEEDS TO BE FIXED

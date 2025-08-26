@@ -285,6 +285,7 @@ if __name__ == "__main__":
             rna_signal_list.append(result[5])
 
     del results_list
+    del rna_df_list
 
     PE_code_list = np.array(PE_code_list)
     #PE_feat_list = np.array(PE_feat_list)
