@@ -137,7 +137,10 @@ promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].fir
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
 
 all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS/data', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
-num_samples = all_ds.data_h5['rna'].shape[1]
+if rna_method is not None:
+    num_samples = all_ds.data_h5['rna'].shape[1]
+else:
+    num
 
 promoter_df = pd.concat([promoter_df] * num_samples, ignore_index=True)
 
