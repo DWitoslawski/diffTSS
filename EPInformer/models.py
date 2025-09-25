@@ -337,6 +337,7 @@ class EPInformer_v2(nn.Module):
         # 2. Apply additional convolutions from conv_out
         
         if self.rna_method == 'embedding':
+            #print(f"PE_embed shape: {pe_embed.shape}\nRNA_embed shape: {rna_emb.unsqueeze(1).shape}")
             pe_embed = torch.concat([pe_embed, rna_emb.unsqueeze(1)], axis=1)
         
         pe_embed = self.conv_out(pe_embed)

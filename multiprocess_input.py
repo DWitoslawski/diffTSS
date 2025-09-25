@@ -194,6 +194,10 @@ def process_gene(gene):
 
 if __name__ == "__main__":
     
+    tokenizer = AutoTokenizer.from_pretrained("InstaDeepAI/nucleotide-transformer-v2-500m-multi-species", trust_remote_code=True)
+    model = AutoModelForMaskedLM.from_pretrained("InstaDeepAI/nucleotide-transformer-v2-500m-multi-species", trust_remote_code=True)
+
+    
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--cell', type=str, help ='cell line (support K562 and GM12878)', choices=['K562', 'GM12878'], required=True)

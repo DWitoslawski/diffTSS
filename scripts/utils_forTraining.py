@@ -152,7 +152,7 @@ class EarlyStopping:
         
         
         
-def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-2, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
+def train(net, training_dataset, fold_i, saved_model_path='../models', learning_rate=1e-4, model_logger=None, fixed_encoder = False, n_enhancers = 50, valid_dataset = None, model_name = '', batch_size = 64, rna_method=None, device = 'cuda', stratify=None, class_weight=None, EPOCHS=100, valid_size=1000):
     if not os.path.exists(saved_model_path):
         os.mkdir(saved_model_path)
     if valid_dataset is not None:
@@ -596,6 +596,7 @@ class promoter_enhancer_dataset(Dataset):
             elif self.rna_method == 'embedding':
                 rna_signal = self.data_h5['rna'][gene_idx, sample_idx]
                 #rna_signal=np.log10(rna_signal+1)
+                rna_signal = np.concatenate([rna_signal.reshape(1,125), np.zeros([60,125])])
         
         # apply data transformation to rna signal NEEDS TO BE FIXED
         if self.rna_transform is not None and self.rna_method is not None:
