@@ -130,7 +130,7 @@ today = datetime.now()   # Get date
 
 datetime_str = today.strftime("%Y-%m-%d-%H")
 #split_df = pd.read_csv('./data/leave_chrom_out_crossvalidation_split_18377genes.csv', index_col=0)
-saved_model_path = './trained_models/{}/'.format(datetime_str)
+saved_model_path = './trained_models/diffTSS/{}/'.format(datetime_str)
 
 EP_df = pd.read_csv(f'/home/witoslaw/data/diffTSS/data/{cell}_enhancer_gene_links_100kb.hg38.tsv', sep='\t')
 promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()

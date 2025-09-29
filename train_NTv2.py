@@ -1,4 +1,5 @@
 import sys
+import shutil
 import argparse
 
 from datetime import datetime
@@ -10,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 
 from EPInformer.models import EPInformer_v2, enhancer_predictor_256bp
 from scipy import stats
@@ -22,7 +23,7 @@ from sklearn.model_selection import GroupKFold
 from sklearn.metrics import mean_squared_error
 
 from datasets import load_dataset, DatasetDict
-from transformers import TrainingArguments, Trainer, AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
+from transformers import TrainingArguments, Trainer, AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, EarlyStoppingCallback
 
 
 def generate_splits(df, group_name, n_folds=12, seed = 42):
@@ -138,7 +139,7 @@ if __name__ == "__main__":
     expr_type = args.expr_assay
     model_size = args.model_size
     
-    model_path = f"/home/witoslaw/dna_language_models/nucleotide-transformer-v2-{model_size}-multi-species"
+    model_path = f"/home/witoslaw/dna_language_models/nucleotide-transformer-v2-{model_size}-multi-species/"
 
     #################
 
@@ -216,6 +217,11 @@ if __name__ == "__main__":
         for param in model.base_model.parameters():
             param.requires_grad = False
 
+            
+        early_stopping_callback = EarlyStoppingCallback(
+            early_stopping_patience=6,  # Stop if no improvement for 6 evaluations
+            #early_stopping_threshold=0.01 # Require at least 0.01 improvement
+        )
         
         training_args = TrainingArguments(
             output_dir=os.path.join(saved_model_path, f'{fold_i}_results'),
@@ -224,7 +230,10 @@ if __name__ == "__main__":
             per_device_eval_batch_size=batch_size,
             num_train_epochs=n_epoch,
             weight_decay=0.01,
-            evaluation_strategy="epoch"
+            metric_for_best_model="eval_loss",
+            evaluation_strategy="epoch",
+            save_strategy="epoch",
+            load_best_model_at_end=True,
         )
         
         
@@ -233,13 +242,33 @@ if __name__ == "__main__":
             args=training_args,
             train_dataset=train_test_valid_dataset["train"],
             eval_dataset=train_test_valid_dataset["valid"],
-            compute_metrics=compute_metrics
+            compute_metrics=compute_metrics,
+            callbacks=[early_stopping_callback],
         )
         
         trainer.train()
         
+        log_path = os.path.join(saved_model_path, f"{fold_i}_results/log.csv")
+        log_history = pd.DataFrame(trainer.state.log_history)
+        log_history.to_csv(log_path)
+        
         results = trainer.evaluate(train_test_valid_dataset["test"])
         print(results)
         
-        model.save_pretrained(os.path.join(saved_model_path, f'{fold_i}_fine_tuned_model'))
-        tokenizer.save_pretrained(os.path.join(saved_model_path, f'{fold_i}_fine_tuned_model'))
+        
+        final_save_path = os.path.join(saved_model_path, f'/{cell}_{fold_i}_fine_tuned_model')
+        model.save_pretrained(final_save_path)
+        tokenizer.save_pretrained(final_save_path)
+        
+        required_file = os.path.join(model_path, "/modeling_esm.py")
+
+        source_file = os.path.join(model_path, required_file)
+        destination_file = os.path.join(final_save_path, required_file)
+
+        if os.path.exists(source_file):
+            print(f"Copying {required_file} to {final_save_path}...")
+            shutil.copyfile(required_file, destination_file)
+        else:
+            print(f"Warning: Could not find required file {required_file} to copy.")
+
+        print(f"Model for fold {fi} saved correctly with custom code at {final_save_path}")
