@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 from EPInformer.models import EPInformer_v2, enhancer_predictor_256bp
 from scipy import stats
@@ -121,8 +121,11 @@ if __name__ == "__main__":
     parser.add_argument("--fold", type=list_of_strings, help="test fold", default='all')
     parser.add_argument('--expr_assay', type=str, help='expression_assay', choices=['CAGE', 'RNA'])
     parser.add_argument('--batch_size', type=int, help='batch size', default=16)
-    parser.add_argument('--epochs',type=int, help='training epochs', default=3)
-    parser.add_argument('--model_size',type=str, help='NTv2 model: 50m or 500m', choices=['50m', '500m'], default='50m')
+    parser.add_argument('--epochs', type=int, help='training epochs', default=3)
+    parser.add_argument('--lr', type=float, help='learning rate', default=1e-4)
+    parser.add_argument('--model_size', type=str, help='NTv2 model: 50m or 500m', choices=['50m', '500m'], default='50m')
+    parser.add_argument('--freeze_base', action='store_true', help='freeze base layers for PEFT')
+    
 
     # example
     # python train_EPInformer.py --cell K562 --expr_assay CAGE --batch_size 16 
@@ -133,11 +136,13 @@ if __name__ == "__main__":
     cell = args.cell
     
     n_epoch = args.epochs
+    learning_rate = args.lr
 
     fold_list = args.fold 
     batch_size = args.batch_size 
     expr_type = args.expr_assay
     model_size = args.model_size
+    freeze_base = args.freeze_base
     
     model_path = f"/home/witoslaw/dna_language_models/nucleotide-transformer-v2-{model_size}-multi-species/"
 
@@ -166,6 +171,8 @@ if __name__ == "__main__":
     config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
     config.num_labels = 1
     config.problem_type = "regression"
+    #config.hidden_dropout_prob = 0.5
+    #config.attention_probs_dropout_prob = 0.5
     
     with open('/home/witoslaw/data/diffTSS/data/K562_promoter_seq_CAGE.json') as f:
         ensid_list = json.load(f)
@@ -214,26 +221,36 @@ if __name__ == "__main__":
         
         # Freeze the pretrained body
         # The classifier head parameters are trainable by default
-        for param in model.base_model.parameters():
-            param.requires_grad = False
+        if freeze_base:
+            for param in model.base_model.parameters():
+                param.requires_grad = False
 
             
         early_stopping_callback = EarlyStoppingCallback(
-            early_stopping_patience=6,  # Stop if no improvement for 6 evaluations
+            early_stopping_patience=10,  # Stop if no improvement for 6 evaluations
             #early_stopping_threshold=0.01 # Require at least 0.01 improvement
         )
         
         training_args = TrainingArguments(
-            output_dir=os.path.join(saved_model_path, f'{fold_i}_results'),
-            learning_rate=1e-4,
+            output_dir=os.path.join(saved_model_path, f'{fold_i}_{cell}_results'),
+            learning_rate=learning_rate,
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
             num_train_epochs=n_epoch,
             weight_decay=0.01,
+            lr_scheduler_type="reduce_lr_on_plateau",
+            lr_scheduler_kwargs={'patience': 6},
+            warmup_steps = 2000,
             metric_for_best_model="eval_loss",
-            evaluation_strategy="epoch",
-            save_strategy="epoch",
+            eval_strategy="steps",
+            eval_steps=1000,
+            save_strategy="steps",
+            save_steps=1000,
+            logging_strategy="steps",
+            logging_steps=1000,
+            log_level="info",
             load_best_model_at_end=True,
+            save_total_limit=3
         )
         
         
@@ -248,26 +265,29 @@ if __name__ == "__main__":
         
         trainer.train()
         
-        log_path = os.path.join(saved_model_path, f"{fold_i}_results/log.csv")
+        log_path = os.path.join(saved_model_path, f"{fold_i}_{cell}_results/log.csv")
         log_history = pd.DataFrame(trainer.state.log_history)
         log_history.to_csv(log_path)
         
         results = trainer.evaluate(train_test_valid_dataset["test"])
         print(results)
         
+        results_path = os.path.join(saved_model_path, f"{fold_i}_{cell}_results/final_eval.json")
+        with open(results_path, "w") as f:
+            json.dump(results, f, indent=4)
         
-        final_save_path = os.path.join(saved_model_path, f'/{cell}_{fold_i}_fine_tuned_model')
+        final_save_path = os.path.join(saved_model_path, f'{fold_i}_{cell}_fine_tuned_model/')
         model.save_pretrained(final_save_path)
         tokenizer.save_pretrained(final_save_path)
         
-        required_file = os.path.join(model_path, "/modeling_esm.py")
+        required_file = "modeling_esm.py"
 
         source_file = os.path.join(model_path, required_file)
         destination_file = os.path.join(final_save_path, required_file)
 
         if os.path.exists(source_file):
             print(f"Copying {required_file} to {final_save_path}...")
-            shutil.copyfile(required_file, destination_file)
+            shutil.copyfile(source_file, destination_file)
         else:
             print(f"Warning: Could not find required file {required_file} to copy.")
 

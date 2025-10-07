@@ -84,8 +84,9 @@ parser.add_argument('--n_interact_enc',type=int, help='layers of interaction enc
 parser.add_argument('--epochs',type=int, help='training epochs', default=100)
 parser.add_argument('--cuda', help='use cuda', action='store_true')
 parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence encoder', action='store_true')
-parser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', None], default=None)
-parser.add_argument('--rna_transform', help='possible data transformations: log10, tanh, sigmoid', choices=['log10', 'tanh', 'sigmoid', None], default=None)
+parser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', 'None'], default='None')
+parser.add_argument('--num_samples', type=int, help='number of RNA-Seq samples to include in model training', default=1)
+parser.add_argument('--rna_transform', help='possible data transformations: log10, tanh, sigmoid', choices=['log10', 'tanh', 'sigmoid', 'None'], default='None')
 
 # example
 # python train_EPInformer.py --cell K562  --model_type EPInformer-PE-Activity --expr_assay CAGE --use_pretrained_encoder --batch_size 16 --fold 1
@@ -96,7 +97,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:0")
+    device = torch.device("cuda:1")
     #device = 'cuda'
 else:
     device = 'cpu'
@@ -115,8 +116,15 @@ elif args.model_type == 'EPInformer-PE-Activity-HiC':
 
 use_pretrained = args.use_pretrained_encoder
 
-rna_method = args.rna
-rna_transform = args.rna_transform
+if args.rna == 'None':
+    rna_method = None
+else:
+    rna_method = args.rna
+    
+if args.rna_transform == 'None':
+    rna_transform = None
+else:
+    rna_transform = args.rna_transform
 
 fold_list = args.fold 
 n_encoder = args.n_interact_enc
@@ -137,10 +145,18 @@ promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].fir
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
 
 all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS/data', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
+
+num_samples = args.num_samples
+
 if rna_method == 'encoding':
-    num_samples = all_ds.data_h5['rna'].shape[1]
-    print(f"Number of RNASeq samples: {num_samples}")
+    max_samples = all_ds.data_h5['rna'].shape[1]
+    if num_samples > max_samples:
+        print(f"{num_samples} samples available. Setting num_samples to {max_samples}.")
+        num_samples = max_samples
+    else:
+        print(f"Using {num_samples} samples.")
 else:
+    print("1 sample available. Setting num_samples to 1.")
     num_samples = 1
 
 promoter_df = pd.concat([promoter_df] * num_samples, ignore_index=True)
