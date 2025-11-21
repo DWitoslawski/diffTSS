@@ -87,6 +87,7 @@ parser.add_argument('--use_pretrained_encoder', help='use pretrained sequence en
 parser.add_argument('--rna', help='option for rna encoding, embedding, or one-hot incorporation', choices=['encoding', 'embedding', 'one-hot', 'None'], default='None')
 parser.add_argument('--num_samples', type=int, help='number of RNA-Seq samples to include in model training', default=1)
 parser.add_argument('--rna_transform', help='possible data transformations: log10, tanh, sigmoid', choices=['log10', 'tanh', 'sigmoid', 'None'], default='None')
+parser.add_argument('--use_separate_rna_encoder', help='use separate encoder for RNA-Seq data', action='store_true')
 
 # example
 # python train_EPInformer.py --cell K562  --model_type EPInformer-PE-Activity --expr_assay CAGE --use_pretrained_encoder --batch_size 16 --fold 1
@@ -97,7 +98,7 @@ args = parser.parse_args()
 cell = args.cell
 
 if args.cuda:
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:2")
     #device = 'cuda'
 else:
     device = 'cpu'
@@ -115,6 +116,7 @@ elif args.model_type == 'EPInformer-PE-Activity-HiC':
     n_extraFeat = 3
 
 use_pretrained = args.use_pretrained_encoder
+separate_rna_encoder = args.use_separate_rna_encoder
 
 if args.rna == 'None':
     rna_method = None
@@ -144,25 +146,28 @@ EP_df = pd.read_csv(f'/home/witoslaw/data/diffTSS/data/{cell}_enhancer_gene_link
 promoter_df = EP_df.groupby('TargetGeneEnsembl_ID', as_index = False)['chr'].first()
 promoter_df.rename(columns={'TargetGeneEnsembl_ID': 'Ensembl_ID'}, inplace=True)
 
-all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS/data', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold, rna_method=rna_method, rna_transform=rna_transform)
 
 num_samples = args.num_samples
 
 if rna_method == 'encoding':
-    max_samples = all_ds.data_h5['rna'].shape[1]
+    max_samples = 8
     if num_samples > max_samples:
         print(f"{num_samples} samples available. Setting num_samples to {max_samples}.")
         num_samples = max_samples
     else:
-        print(f"Using {num_samples} samples.")
+        print(f"Using {num_samples} sample(s).")
 else:
-    print("1 sample available. Setting num_samples to 1.")
     num_samples = 1
+    
+
+all_ds = utils.promoter_enhancer_dataset(data_folder= '/home/witoslaw/data/diffTSS/data', expr_type=expr_type, cell_type=cell, n_extraFeat=n_extraFeat, usePromoterSignal=True, 
+                                         n_enhancers=n_enhancers, hic_threshold=hic_threshold, distance_threshold=distance_threshold,
+                                         rna_method=rna_method, rna_transform=rna_transform, separate_rna_encoder=separate_rna_encoder, num_samples=num_samples)
 
 promoter_df = pd.concat([promoter_df] * num_samples, ignore_index=True)
 
 ensid_list = [eid.decode() for eid in all_ds.data_h5['ensid'][:]]
-ensid_list = ensid_list * num_samples
+#ensid_list = ensid_list * num_samples
 ensid_df = pd.DataFrame(ensid_list, columns=['ensid'])
 ensid_df['idx'] = np.arange(len(ensid_list))
 ensid_df = ensid_df.set_index('ensid')
@@ -200,14 +205,20 @@ for fi in fold_list:
         pt_model_name = '{}_seq2activityLog2_leaveChrOut_combinedRS_2bins_bs64_H3K27ac_adamW_erisxdl_r0'.format(cell)
         checkpoint = torch.load("./trained_models/pretrained_enhancer_encoder/{}_best_{}_checkpoint.pt".format(fold_i, pt_model_name), map_location=torch.device('cpu'))
         print('Loading pretrained model ...', pt_model_name)
-        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=pretrained_convNet.encoder, rna_method=rna_method, rna_transform=rna_transform, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
+        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=pretrained_convNet.encoder, 
+                              rna_method=rna_method, rna_transform=rna_transform, separate_rna_encoder=separate_rna_encoder, num_samples=num_samples,
+                              n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
     else:
-        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, rna_method=rna_method, rna_transform=rna_transform, n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
+        model = EPInformer_v2(n_encoder=n_encoder, pre_trained_encoder=None, 
+                              rna_method=rna_method, rna_transform=rna_transform, separate_rna_encoder=separate_rna_encoder,  num_samples=num_samples,
+                              n_enhancer=n_enhancers, out_dim=64, n_extraFeat=n_extraFeat, device=device).to(device)
 
     model = model.to(device)
     model.name = model.name.replace('EPInformerV2', args.model_type) + '.' +  cell + '.' + expr_type
-    loss_history = utils.train(model, train_ds, valid_dataset=valid_ds, EPOCHS=n_epoch, model_name = model.name, fold_i=fi, batch_size=batch_size, rna_method=rna_method, device=device, saved_model_path=saved_model_path)
-    test_df = utils.test(model, test_ds, model_name = model.name, saved_model_path=saved_model_path, fold_i=fi, batch_size=batch_size, rna_method=rna_method, device=device)
+    loss_history = utils.train(model, train_ds, valid_dataset=valid_ds, EPOCHS=n_epoch, model_name = model.name, fold_i=fi, batch_size=batch_size, 
+                               rna_method=rna_method, separate_rna_encoder=separate_rna_encoder, device=device, saved_model_path=saved_model_path)
+    test_df = utils.test(model, test_ds, model_name = model.name, saved_model_path=saved_model_path, fold_i=fi, batch_size=batch_size, 
+                         rna_method=rna_method, separate_rna_encoder=separate_rna_encoder, device=device)
     
     train_loss = loss_history['train']
     valid_loss = loss_history['valid']

@@ -71,6 +71,55 @@ class seq_256bp_encoder(nn.Module):
             x_enhancer = self.conv_tower[i](x_enhancer)
             x_enhancer = self.conv_tower[i+1](x_enhancer) + x_enhancer
         return x_enhancer
+    
+class rna_seq_encoder(nn.Module):
+    def __init__(self, base_size=1, out_dim=128, conv_dim=256):
+        super(rna_seq_encoder, self).__init__()
+        self.conv_dim = conv_dim
+        self.out_dim = out_dim
+        self.base_size = base_size
+	# cropped_len = 46
+        # stem convolution Transforms 4 channels (bases) into higher dim 256 channels.
+        # captures local patterns (motifs) via convolution
+        self.stem_conv = nn.Sequential(
+	    # 4 in_channels (bases), 256 filters/kernels, kernel convolves over 8bp at once, padding = 'same' -> output is same dim as input
+	    # input = [batch_size, 4, 61, 2000], output = [batch_size, 256, 61, 2000] 
+            nn.Conv2d(in_channels = self.base_size, out_channels = self.conv_dim, kernel_size = (1, 8), stride = 1, padding='same'), # padding='same' is the same as padding=(0,0,3,4)
+            nn.ELU(),
+        )
+        # [batch_size, 256, 256, 1]
+        # convolutional tower:
+        # Key dimension reduction happens through 4 MaxPool layers
+        # Each MaxPool reduces spatial dimension by half: 256 > 128 > 64 > 32 > 16
+        # Channel dimensions change: 256 > 128 > 64 > 64 > 128
+        self.conv_tower = nn.ModuleList([])
+        conv_dim = [self.conv_dim, 128, 64, 64, 128]
+        for i in range(4):
+            self.conv_tower.append(nn.Sequential(
+                nn.Conv2d(in_channels = conv_dim[i], out_channels=conv_dim[i+1], kernel_size=(1, 3), padding=(0, 1)),
+                nn.BatchNorm2d(conv_dim[i+1]),
+                nn.ELU(),                   
+                nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)),
+            ))
+            
+            self.conv_tower.append(nn.Sequential(
+                nn.Conv2d(in_channels = conv_dim[i+1], out_channels=conv_dim[i+1], kernel_size=(1, 1)),
+                nn.ELU(),
+            ))
+            
+        # final shape after conv tower: [batch_size, 128, 16, 1]
+        
+    def forward(self, rna_input):
+        if rna_input.shape[2] == 1:
+            x_rna = rna_input
+        else:
+            x_rna = rna_input.permute(0, 3, 1, 2).contiguous()  
+        x_rna = self.stem_conv(x_rna)
+#         print(x_enhancer.shape)
+        for i in range(0, len(self.conv_tower), 2):
+            x_rna = self.conv_tower[i](x_rna)
+            x_rna = self.conv_tower[i+1](x_rna) + x_rna
+        return x_rna
 
 class enhancer_predictor_256bp(nn.Module):
     def __init__(self):
@@ -171,27 +220,43 @@ class EPInformer_v2(nn.Module):
     # n_encoder: Number of transformer encoder layers.
     # out_dim: Output feature size.
     # head: Number of attention heads in transformer layers.
-    def __init__(self, base_size = 4, n_encoder=4, out_dim=128, head = 8, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_method=None, rna_transform=None):
+    def __init__(self, base_size = 4, n_encoder=4, out_dim=128, head = 8, pre_trained_encoder= None, n_enhancer=50, device='cuda', useBN=True, usePromoterSignal=True, useFeat=True, n_extraFeat=0, useLN=True, rna_method=None, rna_transform=None, separate_rna_encoder=False, num_samples=1):
         super(EPInformer_v2, self).__init__()
         self.n_enhancer = n_enhancer
         self.out_dim = out_dim
+        if separate_rna_encoder:
+            self.fusion_out_dim = 2 * out_dim
+        else:
+            self.fusion_out_dim = self.out_dim
         self.useFeat = useFeat
         self.usePromoterSignal = usePromoterSignal
         self.n_extraFeat = n_extraFeat
         self.useBN = useBN
-        if rna_method == 'encoding':
+        if rna_method == 'encoding' and not separate_rna_encoder:
             self.base_size = base_size + 1
         else:
             self.base_size = base_size
         self.useLN = useLN
         self.rna_method = rna_method if rna_method is not None else 'no'
         self.rna_transform = rna_transform if rna_transform is not None else 'no'
+        self.separate_rna_encoder = separate_rna_encoder
+        self.num_samples = num_samples
         if pre_trained_encoder is not None:
-            self.seq_encoder = pre_trained_encoder
-            self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA.{}RNA_transform'.format(self.base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer, rna_method, rna_transform) 
-        else:
-            self.seq_encoder = seq_256bp_encoder(base_size=self.base_size)
-            self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA.{}RNA_transform'.format(self.base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_method, rna_transform)
+            if separate_rna_encoder:
+                self.rna_encoder = rna_seq_encoder(base_size=self.num_samples)
+                elf.seq_encoder = pre_trained_encoder
+                self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA.{}RNA_transform.separate_RNA_encoder.{}_samples'.format(self.base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer, rna_method, rna_transform, num_samples) 
+            else:
+                self.seq_encoder = pre_trained_encoder
+                self.name = 'EPInformerV2.preTrainedConv.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA.{}RNA_transform'.format(self.base_size, out_dim, n_encoder, head, useBN, useLN, useFeat, n_extraFeat, n_enhancer, rna_method, rna_transform) 
+        else: 
+            if separate_rna_encoder:
+                self.rna_encoder = rna_seq_encoder(base_size=self.num_samples)
+                self.seq_encoder = seq_256bp_encoder(base_size=self.base_size)
+                self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA.{}RNA_transform.separate_RNA_encoder.{}_samples'.format(self.base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_method, rna_transform, num_samples)
+            else: 
+                self.seq_encoder = seq_256bp_encoder(base_size=self.base_size)
+                self.name = 'EPInformerV2.{}base.{}dim.{}Trans.{}head.{}BN.{}LN.{}Feat.{}extraFeat.{}enh.{}RNA.{}RNA_transform'.format(self.base_size, out_dim, n_encoder, head, useBN,useLN, useFeat, n_extraFeat, n_enhancer, rna_method, rna_transform)
         self.n_encoder = n_encoder
         self.device = device
         # Multi-head self-attention captures long-range dependencies between sequence elements (e.g., interactions between enhancers and promoters).
@@ -247,6 +312,36 @@ class EPInformer_v2(nn.Module):
                     nn.ELU(),
                     nn.Dropout(0.2),
                 )
+                '''
+                elif self.rna_method == 'encoding' and separate_rna_encoder:
+                    self.conv_out = nn.Sequential(
+                        # First convolution with dilation=2
+                        nn.Conv2d(in_channels = 256, out_channels=128, kernel_size=(1, 3), dilation=(1, 2)),
+                        nn.BatchNorm2d(64),
+                        nn.ELU(),
+                        # Second convolution with dilation=4
+                        nn.Conv2d(in_channels = 128, out_channels=64, kernel_size=(1, 3), dilation=(1, 4)),
+                        nn.BatchNorm2d(64),
+                        nn.ELU(),
+                        # Third convolution with dilation=6
+                        nn.Conv2d(in_channels = 64, out_channels=64, kernel_size=(1, 3), dilation=(1, 6)),
+                        nn.BatchNorm2d(64),
+                        nn.ELU(),
+                        # 1x1 convolution
+                        # A nn.Conv2d layer with a kernel size of (1, 1) reduces the number of channels from 64 to 32. 
+                        # This is commonly used to reduce channel dimensionality while preserving spatial resolution.
+                        nn.Conv2d(in_channels = 64, out_channels=32, kernel_size=(1, 1)),
+                        nn.BatchNorm2d(32),
+                        nn.ELU(),
+                        # The linear transformation layer expects input tensors with 101 features per sample.
+                        # The layer reduces the dimensionality of the input features to int(self.out_dim / 32) features. 
+                        # self.out_dim = 128, for example, the number of output features would be 4
+                        nn.Linear(101, int(self.out_dim/32)), 
+                         # nn.Linear(38, 8), # 2kb nn.Linear(101, 8)
+                        nn.ELU(),
+                        nn.Dropout(0.2),
+                    )
+                '''
             else:
                 self.conv_out = nn.Sequential(
                     # First convolution with dilation=2
@@ -319,28 +414,39 @@ class EPInformer_v2(nn.Module):
                     nn.Linear(128, 1),
                 )
         self.add_pos_conv = nn.Sequential(
-                nn.Conv1d(in_channels = self.out_dim+n_extraFeat, out_channels=self.out_dim, kernel_size=1),
+                nn.Conv1d(in_channels = self.fusion_out_dim+n_extraFeat, out_channels=self.out_dim, kernel_size=1),
                 nn.ReLU(),
                 nn.Conv1d(in_channels = self.out_dim, out_channels=self.out_dim, kernel_size=1),
                 nn.ReLU(),
         )
 
-    def forward(self, pe_seq, rna_feat=None, extraFeat=None, rna_emb=None):
+    def forward(self, pe_seq, rna_feat=None, extraFeat=None, rna=None):
         # if enhancers_padding_mask is None:
         enhancers_padding_mask = ~(pe_seq.sum(-1).sum(-1) > 0).bool()
 #         print(enhancers_padding_mask)
         # 1. Get convolutional features from seq_encoder
         #print(f'pe_seq before seq_encoder: {pe_seq}')
         pe_embed = self.seq_encoder(pe_seq)
+        
+        if self.rna_method == 'encoding' and self.separate_rna_encoder:
+            #print(f'RNA shape before rna_encoder: {rna.shape}')
+            rna_embed = self.rna_encoder(rna)
+            #print(f'RNA embedding shape after rna_encoder: {rna_embed.shape}')
+            rna_embed = self.conv_out(rna_embed)
+            #print(f'RNA embedding shape after conv_out: {rna_embed.shape}')
+            rna_flatten_embed = torch.flatten(rna_embed.permute(0, 2, 1, 3), start_dim=2)
+            #print(f'RNA embedding shape after permute and flattening: {rna_flatten_embed.shape}')
+            
         #print(f'pe_embed after seq_encoder: {pe_embed}')
         # Shape is [batch_size, 128, 16, 1] 128 is channels, 16 is reduced sequence length 
         # 2. Apply additional convolutions from conv_out
         
         if self.rna_method == 'embedding':
             #print(f"PE_embed shape: {pe_embed.shape}\nRNA_embed shape: {rna_emb.unsqueeze(1).shape}")
-            pe_embed = torch.concat([pe_embed, rna_emb.unsqueeze(1)], axis=1)
+            pe_embed = torch.concat([pe_embed, rna.unsqueeze(1)], axis=1)      
         
         pe_embed = self.conv_out(pe_embed)
+
         #print(f'pe_embed after conv_out: {pe_embed}')
         # Shape becomes [batch_size, 32, 16, 4]
         # (32 channels due to final conv layer, 4 comes from the Linear(101, out_dim/32) where out_dim=128)
@@ -348,6 +454,11 @@ class EPInformer_v2(nn.Module):
         # permute Reorders dimensions to [batch_size, 16, 32, 4]
         # flatten Flattens last two dimensions: 32 * 4 = 128
         pe_flatten_embed = torch.flatten(pe_embed.permute(0, 2, 1, 3), start_dim=2)
+                  
+        if self.rna_method == 'encoding' and self.separate_rna_encoder:
+            #print(f'PE embedding shape after permute and flattening: {pe_flatten_embed.shape}')
+            pe_flatten_embed = torch.concat((pe_flatten_embed, rna_flatten_embed), axis=2)
+            #print(f'PE embedding concat with RNA embedding along axis 2: {pe_flatten_embed.shape}')
         #print(f'pe_embed after pe_embed.permute(0,2,1,3): {pe_embed.permute(0, 2, 1, 3)}')
         #print(f'pe_flaten_embed after torch.flatten(pe_embed.permute(0,2,1,3), start_dim=2): {pe_flatten_embed}')
         # Final shape: [batch_size, 16, 128]
@@ -355,7 +466,11 @@ class EPInformer_v2(nn.Module):
         # sequence_length = 16 (reduced from 256), embedding_dim = 128 (32 channels * 4) 
         if extraFeat is not None:
             #print(f'pe_flatten_embed shape after torch.concat: {torch.concat([pe_flatten_embed, extraFeat], axis=-1).permute(0,2,1)}')
+            #print(f'extraFeat: {extraFeat.shape}')
+            #print(f'pe_flatten_embed shape before fusion layer: {pe_flatten_embed.shape}')
+            #print(f'pe_flatten_embed shape after concat with n_extraFeat {self.n_extraFeat}: {torch.concat([pe_flatten_embed, extraFeat], axis=-1).shape}')
             pe_flatten_embed = self.add_pos_conv(torch.concat([pe_flatten_embed, extraFeat], axis=-1).permute(0,2,1)).permute(0,2,1)
+            #print(f'pe_flatten_embed shape after fusion layer: {pe_flatten_embed.shape}')
             #print(f'pe_flatten_embed shape after add_pos_conv: {pe_flatten_embed} - final shape going into attn_encoder')
         attn_list = []
         for i in range(self.n_encoder):
